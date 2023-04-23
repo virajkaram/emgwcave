@@ -1,0 +1,110 @@
+from penquins import Kowalski
+import os
+from pathlib import Path
+
+default_projection_kwargs = {
+        "candidate.isdiffpos": 1,
+        "cutoutScience": 1,
+        "cutoutTemplate": 1,
+        "cutoutDifference": 1,
+        "candidate.fid": 1,
+        "candidate.jd": 1,
+        "candidate.magpsf": 1,
+        "candidate.sigmapsf": 1,
+        "candidate.diffmaglim": 1
+    }
+
+
+def connect_kowalski():
+    kowalski_token = os.getenv('KOWALSKI_TOKEN')
+    kowalski_url = os.getenv('KOWALSKI_URL')
+    kowalski_port = os.getenv('KOWALSKI_PORT')
+
+    if kowalski_token is None:
+        err = "Please specify fritz token using export KOWALSKI_TOKEN=<>"
+        print(err)
+        raise ValueError(err)
+
+    if kowalski_url is None:
+        err = "Please specify fritz token using export KOWALSKI_URL=<>"
+        print(err)
+        raise ValueError(err)
+
+    if kowalski_port is None:
+        err = "Please specify fritz token using export KOWALSKI_PORT=<>"
+        print(err)
+        raise ValueError(err)
+
+    protocol, host, port = "https", kowalski_url, kowalski_port
+    kowalski = Kowalski(token=kowalski_token, protocol=protocol, host=host, port=port)
+    connection_ok = kowalski.ping()
+    print(f'Connection OK: {connection_ok}')
+    return kowalski
+
+
+def query_aux_alerts(k, name, projection=None, instrument="ZTF"):
+    if projection is None:
+        projection = {'prv_candidates': 0}
+
+    # Run a find query on ZTF aux alerts catalog
+    q = {
+        'query_type': 'find',
+        'query': {
+            'catalog': f'{instrument}_alerts_aux',
+            'filter': {
+                '_id': name
+            },
+            'projection': projection,
+        }
+    }
+
+    r = k.query(query=q)
+    data = r['default']['data'][0]
+    return data
+
+
+def run_pipeline_offline(k, pipelines_array):
+    queries = [{
+        "query_type": "aggregate",
+        "query": {
+            "catalog": "ZTF_alerts",
+            "pipeline": pipeline,
+            "kwargs": {
+                "max_time_ms": 100000
+            }
+        }
+    } for pipeline in pipelines_array]
+
+    # response = k.query(query=q)
+    responses = k.batch_query(queries=queries, n_treads=len(pipelines_array))
+
+    data = []
+    for response in responses:
+        print(f"Response {response['status']}:{response['message']}")
+        data = data+response.get("data")
+
+    return data
+
+
+def search_in_skymap(k: Kowalski,
+                     skymap_path: Path,
+                     cumprob: float,
+                     jd_start: float,
+                     jd_end: float,
+                     max_n_threads: int = 8,
+                     catalogs: list = ['ZTF_alerts'],
+                     filter_kwargs: dict = {},
+                     projection_kwargs: dict = {}):
+    cands_in_skymap = k.query_skymap(path=skymap_path,
+                                     cumprob=cumprob,
+                                     jd_start=jd_start,
+                                     jd_end=jd_end,
+                                     catalogs=catalogs,
+                                     program_ids=[1, 2, 3],
+                                     filter_kwargs=filter_kwargs,
+                                     projection_kwargs=projection_kwargs,
+                                     max_n_threads=max_n_threads
+                                     )
+
+    return cands_in_skymap
+
