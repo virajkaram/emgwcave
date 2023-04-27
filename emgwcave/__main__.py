@@ -3,8 +3,10 @@ from astropy.time import Time
 from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
     default_projection_kwargs
 from emgwcave.plotting import plot_skymap, save_thumbnails, make_full_pdf
-from emgwcave.candidate_utils import save_candidates_to_file, get_photometry
-from emgwcave.fritz_filter import fritz_emgw_filter
+from emgwcave.candidate_utils import save_candidates_to_file, \
+    append_photometry_to_candidates, write_photometry_to_file
+from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
+    pythonised_fritz_emgw_filter_stationary_stage
 import os
 import json
 from emgwcave.skymap_utils import read_skymap_fits
@@ -14,11 +16,12 @@ if __name__ == '__main__':
     parser.add_argument("skymappath", type=str)
     parser.add_argument("cumprob", type=float)
     parser.add_argument("end_date", type=str, help='2023-04-23T00:00:00')
-    parser.add_argument("outdir", type=str, help='name of output directory')
+    parser.add_argument("outdir", type=str, help='name of output directory for plots, '
+                                                 'etc.')
     parser.add_argument("-start_date", type=str, default=None,
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
-    parser.add_argument("-filter", type=str, choices=['none', 'fritz', 'custom'],
+    parser.add_argument("-filter", type=str, choices=['none', 'fritz'],
                         help='What filter do you want to use?', default='none'
                         )
     parser.add_argument("-customfilterfile", type=str,
@@ -28,8 +31,8 @@ if __name__ == '__main__':
                                                     "to use on kowalski",
                         default=8)
     parser.add_argument("-plot_skymap", action="store_true")
-    parser.add_argument("-skip_thumbnail_plot", action="store_true")
-    parser.add_argument("-skip_photometry_plot", action="store_true")
+    parser.add_argument("-plot_lightcurves_separately", action="store_true")
+    parser.add_argument("-plot_thumbnails_separately", action="store_true")
     parser.add_argument("-mjd_event", type=float, default=None)
 
     args = parser.parse_args()
@@ -66,17 +69,10 @@ if __name__ == '__main__':
             os.makedirs(d)
 
     # Get the filter to use
-    if args.filter == 'none':
-        filter_kwargs = {
-            "candidate.drb": {"$gt": 0.7},
+    filter_kwargs = {
+            "candidate.drb": {"$gt": 0.3},
             "candidate.ndethist": {"$gt": 1},
         }
-
-    elif args.filter == 'fritz':
-        filter_kwargs = fritz_emgw_filter
-
-    else:
-        filter_kwargs = json.load(args.customfilterfile)
 
     # Set up Kowalski connection and run query
     kowalski = connect_kowalski()
@@ -93,6 +89,22 @@ if __name__ == '__main__':
 
     selected_candidates = candidates['default']['ZTF_alerts']
     print(f"Retrieved {len(selected_candidates)} alerts.")
+    if args.filter == 'fritz':
+        selected_candidates = pythonised_fritz_emgw_filter_stage_1(
+            selected_candidates)
+    print(f"Filtered {len(selected_candidates)} alerts.")
+
+    # Get full photometry history for the selected candidates
+    selected_candidates = append_photometry_to_candidates(selected_candidates)
+
+    if args.filter == 'fritz':
+        selected_candidates = pythonised_fritz_emgw_filter_stationary_stage(
+            selected_candidates)
+
+    print(f"Filtered {len(selected_candidates)} alerts.")
+
+    # TODO : Can get thumbnails separately for only the sources that passed to make
+    #  the query faster
 
     # Make diagnostic plots
     ras = [x['candidate']['ra'] for x in selected_candidates]
@@ -100,15 +112,16 @@ if __name__ == '__main__':
     if args.plot_skymap:
         plot_skymap(args.skymappath, flatten=True, ras=ras, decs=decs)
 
-    if not args.skip_thumbnail_plot:
-        save_thumbnails(selected_candidates,
-                        thumbnails_dir=thumbnails_dir)
+    save_thumbnails(selected_candidates,
+                    thumbnails_dir=thumbnails_dir,
+                    plot=args.plot_thumbnails_separately)
 
     # Save candidate info to CSV file
     save_candidates_to_file(selected_candidates, savefile)
 
-    if not args.skip_photometry_plot:
-        get_photometry(selected_candidates, phot_dir=phot_dir)
+    write_photometry_to_file(selected_candidates,
+                             phot_dir=phot_dir,
+                             plot=args.plot_lightcurves_separately)
 
     make_full_pdf(selected_candidates,
                   thumbnails_dir=thumbnails_dir,

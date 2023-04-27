@@ -3,15 +3,32 @@ import os
 from pathlib import Path
 
 default_projection_kwargs = {
-        "candidate.isdiffpos": 1,
-        "cutoutScience": 1,
-        "cutoutTemplate": 1,
-        "cutoutDifference": 1,
-        "candidate.fid": 1,
-        "candidate.jd": 1,
-        "candidate.magpsf": 1,
-        "candidate.sigmapsf": 1,
-        "candidate.diffmaglim": 1
+    "candidate.jdstarthist": 1,
+    "candidate.isdiffpos": 1,
+    "candidate.drb": 1,
+    "candidate.magpsf": 1,
+    "candidate.jd": 1,
+    "candidate.ssdistnr": 1,
+    "candidate.ssmagnr": 1,
+    "candidate.distpsnr1": 1,
+    "candidate.sgscore1": 1,
+    "candidate.distpsnr2": 1,
+    "candidate.srmag2": 1,
+    "candidate.sgscore2": 1,
+    "candidate.distpsnr3": 1,
+    "candidate.srmag3": 1,
+    "candidate.sgscore3": 1,
+    "candidate.sgmag1": 1,
+    "candidate.srmag1": 1,
+    "candidate.simag1": 1,
+    "candidate.distnr": 1,
+    "candidate.magnr": 1,
+    "candidate.diffmaglim": 1,
+    "candidate.fid": 1,
+    "candidate.magap": 1,
+    "cutoutScience": 1,
+    "cutoutTemplate": 1,
+    "cutoutDifference": 1,
     }
 
 
@@ -21,17 +38,17 @@ def connect_kowalski():
     kowalski_port = os.getenv('KOWALSKI_PORT')
 
     if kowalski_token is None:
-        err = "Please specify fritz token using export KOWALSKI_TOKEN=<>"
+        err = "Please specify Kowalski token using export KOWALSKI_TOKEN=<>"
         print(err)
         raise ValueError(err)
 
     if kowalski_url is None:
-        err = "Please specify fritz token using export KOWALSKI_URL=<>"
+        err = "Please specify Kowalski url using export KOWALSKI_URL=<>"
         print(err)
         raise ValueError(err)
 
     if kowalski_port is None:
-        err = "Please specify fritz token using export KOWALSKI_PORT=<>"
+        err = "Please specify Kowalski port using export KOWALSKI_PORT=<>"
         print(err)
         raise ValueError(err)
 

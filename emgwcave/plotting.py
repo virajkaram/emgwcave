@@ -63,7 +63,8 @@ def plot_thumbnail(data, savename=None, ax=None, save=True):
 
 
 def save_thumbnails(candidates: dict,
-                    thumbnails_dir: str | Path):
+                    thumbnails_dir: str | Path,
+                    plot: bool = False):
     print(f'Saving thtumbnails to {thumbnails_dir}')
     for candidate in candidates:
         sci_cutout = candidate['cutoutScience']['stampData']
@@ -85,12 +86,13 @@ def save_thumbnails(candidates: dict,
         with open(os.path.join(thumbnails_dir, f"{name}_diff.npy"), 'w') as f:
             np.savetxt(f, diff_cutout_data)
 
-        sci_thumbname = os.path.join(thumbnails_dir, f"{name}_sci.png")
-        ref_thumbname = os.path.join(thumbnails_dir, f"{name}_ref.png")
-        diff_thumbname = os.path.join(thumbnails_dir, f"{name}_diff.png")
-        plot_thumbnail(sci_cutout_data, sci_thumbname)
-        plot_thumbnail(ref_cutout_data, ref_thumbname)
-        plot_thumbnail(diff_cutout_data, diff_thumbname)
+        if plot:
+            sci_thumbname = os.path.join(thumbnails_dir, f"{name}_sci.png")
+            ref_thumbname = os.path.join(thumbnails_dir, f"{name}_ref.png")
+            diff_thumbname = os.path.join(thumbnails_dir, f"{name}_diff.png")
+            plot_thumbnail(sci_cutout_data, sci_thumbname)
+            plot_thumbnail(ref_cutout_data, ref_thumbname)
+            plot_thumbnail(diff_cutout_data, diff_thumbname)
 
 
 color_dict = {'ztfg': 'green',
