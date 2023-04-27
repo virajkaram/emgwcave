@@ -23,8 +23,7 @@ def save_candidates_to_file(candidates: list[dict],
     candidate_df.to_csv(savefile, index=False)
 
 
-def get_photometry(candidates: list[dict],
-                   phot_dir: str | Path):
+def append_photometry_to_candidates(candidates: list[dict]):
     projection = {'prv_candidates': 1}
     k = connect_kowalski()
     for candidate in candidates:
@@ -34,12 +33,23 @@ def get_photometry(candidates: list[dict],
                                           projection=projection)
 
         candidate['prv_candidates'] = prv_candidates['prv_candidates']
+
+    return candidates
+
+
+def write_photometry_to_file(candidates: list[dict],
+                             phot_dir: str | Path = None,
+                             plot: bool = False):
+    for candidate in candidates:
+        name = candidate['objectId']
         photometry_df = make_photometry(candidate)
 
         lcfilename = os.path.join(phot_dir, f'lc_{name}.csv')
-        lcplotfilename = os.path.join(phot_dir, f'lc_{name}.png')
         photometry_df.to_csv(lcfilename)
-        plot_photometry(photometry_df, lcplotfilename)
+        if plot:
+            lcplotfilename = os.path.join(phot_dir, f'lc_{name}.png')
+
+            plot_photometry(photometry_df, lcplotfilename)
 
 
 def make_photometry(alert,
