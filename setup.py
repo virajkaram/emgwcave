@@ -32,6 +32,7 @@ setuptools.setup(
         "matplotlib",
         "requests",
         "typing",
+        "snipergw @ git+https://github.com/robertdstein/snipergw.git@v0.2.0"
     ],
     package_data={
     }
