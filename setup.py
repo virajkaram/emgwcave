@@ -30,13 +30,8 @@ setuptools.setup(
         "astropy",
         "penquins",
         "matplotlib",
-        "json",
-        "os",
-        "sys",
-        "re",
         "requests",
         "typing",
-        "penquins"
     ],
     package_data={
     }
