@@ -16,8 +16,8 @@ if __name__ == '__main__':
     parser.add_argument("skymappath", type=str)
     parser.add_argument("cumprob", type=float)
     parser.add_argument("end_date", type=str, help='2023-04-23T00:00:00')
-    parser.add_argument("outdir", type=str, help='name of output directory for plots, '
-                                                 'etc.')
+    parser.add_argument("outdir", type=str,
+                        help='name of output directory for plots etc.')
     parser.add_argument("-start_date", type=str, default=None,
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
