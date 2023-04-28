@@ -4,12 +4,13 @@ from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
     default_projection_kwargs
 from emgwcave.plotting import plot_skymap, save_thumbnails, make_full_pdf
 from emgwcave.candidate_utils import save_candidates_to_file, \
-    append_photometry_to_candidates, write_photometry_to_file
+    append_photometry_to_candidates, write_photometry_to_file, get_thumbnails, \
+    deduplicate_candidates
 from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
     pythonised_fritz_emgw_filter_stationary_stage
 import os
-import json
 from emgwcave.skymap_utils import read_skymap_fits
+from copy import deepcopy
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -70,10 +71,16 @@ if __name__ == '__main__':
 
     # Get the filter to use
     filter_kwargs = {
-            "candidate.drb": {"$gt": 0.3},
-            "candidate.ndethist": {"$gt": 1},
+            # "candidate.drb": {"$gt": 0.3},
+            # "candidate.ndethist": {"$gt": 1},
         }
 
+    # TODO: use different dates for jd and jdstarthist, as jdstarthist is
+    #  3-sigma detections. So the default should be search for all alerts generated in
+    #  the given time windo (i.e. now), but filter through only those that have
+    #  jdstarthist within the first 3 or 5 days since the event. This will give all
+    #  alerts that were first detected (albeit subthreshold) within the first 3 or
+    #  5 days. Also sorts the problem of getting the latest photometry point.
     # Set up Kowalski connection and run query
     kowalski = connect_kowalski()
     candidates = search_in_skymap(k=kowalski,
@@ -81,14 +88,20 @@ if __name__ == '__main__':
                                   cumprob=args.cumprob,
                                   jd_start=start_date_jd,
                                   jd_end=end_date_jd,
-                                  catalogs=['ZTF_alerts'],
+                                  catalogs=[f'{args.instrument}_alerts'],
                                   filter_kwargs=filter_kwargs,
                                   projection_kwargs=default_projection_kwargs,
                                   max_n_threads=args.nthreads
                                   )
 
-    selected_candidates = candidates['default']['ZTF_alerts']
+    selected_candidates = candidates['default'][f'{args.instrument}_alerts']
     print(f"Retrieved {len(selected_candidates)} alerts.")
+
+    # Deduplicate candidates
+    selected_candidates = deduplicate_candidates(selected_candidates)
+
+    save_candidates_to_file(deepcopy(selected_candidates),
+                            savefile=f'{args.outdir}/all_retrieved_alerts.csv')
     if args.filter == 'fritz':
         selected_candidates = pythonised_fritz_emgw_filter_stage_1(
             selected_candidates)
@@ -99,12 +112,12 @@ if __name__ == '__main__':
 
     if args.filter == 'fritz':
         selected_candidates = pythonised_fritz_emgw_filter_stationary_stage(
-            selected_candidates)
+            selected_candidates, save=True, outdir=args.outdir)
 
     print(f"Filtered {len(selected_candidates)} alerts.")
 
-    # TODO : Can get thumbnails separately for only the sources that passed to make
-    #  the query faster
+    # Get thumbnails
+    selected_candidates = get_thumbnails(selected_candidates)
 
     # Make diagnostic plots
     ras = [x['candidate']['ra'] for x in selected_candidates]
