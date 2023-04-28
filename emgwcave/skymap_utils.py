@@ -7,7 +7,7 @@ from scipy.stats import norm
 import os
 
 
-def read_skymap_fits(filename):
+def read_lvc_skymap_fits(filename):
     h = fits.open(filename)
     data = Table(h[1].data)
 
@@ -18,6 +18,17 @@ def read_skymap_fits(filename):
 
     header = h[1].header
     return prob, distmu, distsigma, distnorm, header
+
+
+def read_fermi_skymap_fits(filename):
+    h = fits.open(filename)
+    data = Table(h[1].data)
+
+    uniq = np.array(data['UNIQ'])
+    prob = np.array(data['PROBDENSITY'])
+
+    header = h[1].header
+    return uniq, prob, header
 
 
 def get_credible_levels(prob):
