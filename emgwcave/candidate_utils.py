@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import json
-from emgwcave.kowalski_utils import query_aux_alerts, connect_kowalski
+from emgwcave.kowalski_utils import query_aux_alerts, connect_kowalski, get_find_query
 import numpy as np
 from copy import deepcopy
 from typing import Optional
@@ -15,9 +15,12 @@ def save_candidates_to_file(candidates: list[dict],
     #     json.dump(candidates, f)
 
     for candidate in candidates:
-        _ = candidate.pop('cutoutScience')
-        _ = candidate.pop('cutoutTemplate')
-        _ = candidate.pop('cutoutDifference')
+        if 'cutoutScience' in candidate:
+            _ = candidate.pop('cutoutScience')
+        if 'cutoutTemplate' in candidate:
+            _ = candidate.pop('cutoutTemplate')
+        if 'cutoutDifference' in candidate:
+            _ = candidate.pop('cutoutDifference')
 
     candidate_df = pd.json_normalize(candidates)
     candidate_df.to_csv(savefile, index=False)
@@ -54,7 +57,7 @@ def write_photometry_to_file(candidates: list[dict],
 
 def make_photometry(alert,
                     jd_start: Optional[float] = None,
-                    instrument: str='ZTF'):
+                    instrument: str = 'ZTF'):
     """
     Make a de-duplicated pandas.DataFrame with photometry of alert['objectId']
     Modified from Kowalksi (https://github.com/dmitryduev/kowalski)
@@ -136,7 +139,7 @@ def make_photometry(alert,
     # step 2: calculate the flux normalized to an arbitrary AB zeropoint of
     # 23.9 (results in flux in uJy)
     df_light_curve["flux"] = coeff * 10 ** (
-        -0.4 * (df_light_curve["magpsf"] - 23.9)
+            -0.4 * (df_light_curve["magpsf"] - 23.9)
     )
 
     # step 3: separate detections from non detections
@@ -156,7 +159,7 @@ def make_photometry(alert,
 
     # step 4b: calculate fluxerr for non detections using diffmaglim
     df_light_curve.loc[undetected, "fluxerr"] = (
-        10 ** (-0.4 * (df_light_curve.loc[undetected, "diffmaglim"] - 23.9)) / 5.0
+            10 ** (-0.4 * (df_light_curve.loc[undetected, "diffmaglim"] - 23.9)) / 5.0
     )  # as diffmaglim is the 5-sigma depth
 
     # step 5: set the zeropoint and magnitude system
@@ -169,3 +172,45 @@ def make_photometry(alert,
         df_light_curve = df_light_curve.loc[w_after_jd]
 
     return df_light_curve
+
+
+def get_thumbnails(candidates: list[dict],
+                   catalog='ZTF_alerts'):
+    projection = {'cutoutScience': 1,
+                  'cutoutTemplate': 1,
+                  'cutoutDifference': 1
+                  }
+    k = connect_kowalski()
+
+    for candidate in candidates:
+        query = get_find_query(catalog=catalog,
+                               filter={'objectId': candidate['objectId']},
+                               projection=projection)
+        response = k.query(query=query)
+
+        if response['default']['status'] == 'success':
+            candidate['cutoutScience'] = response['default']['data'][0]['cutoutScience']
+            candidate['cutoutTemplate'] = \
+                response['default']['data'][0]['cutoutTemplate']
+            candidate['cutoutDifference'] = response['default']['data'][0]['cutoutDifference']
+        else:
+            print(f'Failed to get cutouts for {candidate["objectId"]}')
+            candidate['cutoutScience'] = np.zeros((1, 1))
+            candidate['cutoutTemplate'] = np.zeros((1, 1))
+            candidate['cutoutDifference'] = np.zeros((1, 1))
+
+    return candidates
+
+
+def deduplicate_candidates(candidates: list[dict]):
+    """Deduplicate candidates by objectId by keeping the one with the latest jd"""
+    if not isinstance(candidates, np.ndarray):
+        candidates = np.array(candidates)
+    all_jds = np.array([x['candidate']['jd'] for x in candidates])
+
+    sortinds = np.argsort(all_jds)
+    candidates = candidates[sortinds[::-1]]
+    all_objectids = np.array([x['objectId'] for x in candidates])
+    unique_objectids, unique_indices = np.unique(all_objectids, return_index=True)
+
+    return candidates[unique_indices]
