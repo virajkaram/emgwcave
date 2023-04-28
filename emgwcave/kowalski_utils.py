@@ -26,9 +26,6 @@ default_projection_kwargs = {
     "candidate.diffmaglim": 1,
     "candidate.fid": 1,
     "candidate.magap": 1,
-    "cutoutScience": 1,
-    "cutoutTemplate": 1,
-    "cutoutDifference": 1,
     }
 
 
@@ -125,3 +122,18 @@ def search_in_skymap(k: Kowalski,
 
     return cands_in_skymap
 
+
+def get_find_query(catalog: str,
+                   filter: dict,
+                   projection: dict,
+                   query_kwargs: dict = {}):
+    q = {
+        'query_type': 'find',
+        'query': {
+            'catalog': catalog,
+            'filter': filter,
+            'projection': projection,
+            'kwargs': query_kwargs
+        }
+    }
+    return q

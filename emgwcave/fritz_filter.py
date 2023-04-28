@@ -1,4 +1,6 @@
 import numpy as np
+from emgwcave.candidate_utils import save_candidates_to_file
+from copy import deepcopy
 
 fritz_emgw_filter = {}
 
@@ -50,11 +52,15 @@ def pythonised_fritz_emgw_filter_stage_1(sources: list[dict]):
     return sources[selected_source_mask]
 
 
-def pythonised_fritz_emgw_filter_stationary_stage(sources: list[dict]):
+def pythonised_fritz_emgw_filter_stationary_stage(sources: list[dict],
+                                                  save: bool = True,
+                                                  outdir: str = None):
     """
     The sources should now have the prv_candidates field. This function does a
     final filtering of the sources to remove non-stationary sources by looking at
     the difference between two consecutive detections
+    :param outdir: output directory in which to write the data
+    :param save: save a record of all the sources and the evaluated values
     :param sources:
     :return:
     """
@@ -71,13 +77,19 @@ def pythonised_fritz_emgw_filter_stationary_stage(sources: list[dict]):
                                                  for x in
                                                  prv_candidates_detections]).astype(
             bool)
-
+        if len(prv_candidate_jds) == 0:
+            source['mindiff'] = 0
+        else:
+            source['mindiff'] = np.max(np.abs(prv_candidate_jds - candidate['jd']))
         source['stationary_flag'] = np.any(
-            (np.abs(prv_candidate_jds - candidate['jd']) > 0.02) &
+            (np.abs(prv_candidate_jds - candidate['jd']) > 0.01) &
             (prv_candidate_mags < 99) &
             prv_candidate_isdiffpos_flag
         )
 
+    if save:
+        save_candidates_to_file(deepcopy(sources),
+                                savefile=f'{outdir}/fritz_emgw_stationary_stage.csv')
     selected_source_mask = [x['stationary_flag'] for x in sources]
 
     # print([x['positive_sub_flag'] for x in sources[selected_source_mask]])
