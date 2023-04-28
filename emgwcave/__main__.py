@@ -9,7 +9,7 @@ from emgwcave.candidate_utils import save_candidates_to_file, \
 from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
     pythonised_fritz_emgw_filter_stationary_stage
 import os
-from emgwcave.skymap_utils import read_skymap_fits
+from emgwcave.skymap_utils import read_lvc_skymap_fits, read_fermi_skymap_fits
 from copy import deepcopy
 
 if __name__ == '__main__':
@@ -40,7 +40,15 @@ if __name__ == '__main__':
 
     if args.mjd_event is None:
         try:
-            _, _, _, _, header = read_skymap_fits(args.skymappath)
+            _, _, _, _, header = read_lvc_skymap_fits(args.skymappath)
+        except KeyError as err:
+            print(f"Could not read skymap with LVC reader, trying with Fermi - {err}")
+            try:
+                _, _, header = read_fermi_skymap_fits(args.skymappath)
+            except KeyError as exc:
+                print(f"Skymap could not be read by LVC or Fermi - {exc}")
+                raise exc
+        try:
             mjd_event = header['MJD-OBS']
         except Exception as err:
             print("Error reading MJD-OBS, please provide it at commandline using"
@@ -61,8 +69,10 @@ if __name__ == '__main__':
                             f"{args.instrument}_alerts_cumprob{args.cumprob}"
                             f"_{round(start_date_jd, 2)}_{end_date_jd}.csv")
     full_pdffile = os.path.join(output_dir,
-                                f"{args.instrument}_alerts_cumprob{args.cumprob}"
-                                f"_{round(start_date_jd, 2)}_{end_date_jd}.pdf")
+                                f"{os.path.basename(args.skymappath).split('.fits')[0]}"
+                                f"_{args.instrument}_alerts_cumprob{args.cumprob}"
+                                f"_{round(start_date_jd, 2)}_{round(end_date_jd, 2)}"
+                                f".pdf")
     phot_dir = os.path.join(output_dir, 'photometry')
     thumbnails_dir = os.path.join(output_dir, 'thumbnails')
     for d in [phot_dir, thumbnails_dir]:
@@ -70,17 +80,16 @@ if __name__ == '__main__':
             os.makedirs(d)
 
     # Get the filter to use
-    filter_kwargs = {
-            # "candidate.drb": {"$gt": 0.3},
-            # "candidate.ndethist": {"$gt": 1},
-        }
+    filter_kwargs = {}
 
     # TODO: use different dates for jd and jdstarthist, as jdstarthist is
     #  3-sigma detections. So the default should be search for all alerts generated in
     #  the given time windo (i.e. now), but filter through only those that have
     #  jdstarthist within the first 3 or 5 days since the event. This will give all
     #  alerts that were first detected (albeit subthreshold) within the first 3 or
-    #  5 days. Also sorts the problem of getting the latest photometry point.
+    #  5 days. Also sorts the problem of getting the latest photometry point. Actually
+    #  the filter requires jd -jdstarthist < 10 days, so maybe we can use that
+    #  instead of arbitrarily large days.
     # Set up Kowalski connection and run query
     kowalski = connect_kowalski()
     candidates = search_in_skymap(k=kowalski,
@@ -99,7 +108,10 @@ if __name__ == '__main__':
 
     # Deduplicate candidates
     selected_candidates = deduplicate_candidates(selected_candidates)
+    print(f"Retained {len(selected_candidates)} alerts after deduplication.")
 
+    # TODO - Recheck if all these candidates are inside the skymap
+    
     save_candidates_to_file(deepcopy(selected_candidates),
                             savefile=f'{args.outdir}/all_retrieved_alerts.csv')
     if args.filter == 'fritz':
