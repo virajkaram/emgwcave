@@ -5,7 +5,7 @@ from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
 from emgwcave.plotting import plot_skymap, save_thumbnails, make_full_pdf
 from emgwcave.candidate_utils import save_candidates_to_file, \
     append_photometry_to_candidates, write_photometry_to_file, get_thumbnails, \
-    deduplicate_candidates
+    deduplicate_candidates, get_candidates_in_localization
 from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
     pythonised_fritz_emgw_filter_stationary_stage
 import os
@@ -110,10 +110,15 @@ if __name__ == '__main__':
     selected_candidates = deduplicate_candidates(selected_candidates)
     print(f"Retained {len(selected_candidates)} alerts after deduplication.")
 
-    # TODO - Recheck if all these candidates are inside the skymap
-    
     save_candidates_to_file(deepcopy(selected_candidates),
                             savefile=f'{args.outdir}/all_retrieved_alerts.csv')
+
+    # Perform a second check for candidates in the skymap
+    selected_candidates = get_candidates_in_localization(selected_candidates,
+                                                         args.skymappath,
+                                                         args.cumprob)
+    print(f"Retained {len(selected_candidates)} alerts after localization check.")
+
     if args.filter == 'fritz':
         selected_candidates = pythonised_fritz_emgw_filter_stage_1(
             selected_candidates)

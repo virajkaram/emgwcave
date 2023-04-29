@@ -1,7 +1,8 @@
 from pathlib import Path
 import pandas as pd
-import json
 from emgwcave.kowalski_utils import query_aux_alerts, connect_kowalski, get_find_query
+from emgwcave.skymap_utils import read_flattened_skymap, in_skymap, flatten_skymap, \
+    get_flattened_skymap_path
 import numpy as np
 from copy import deepcopy
 from typing import Optional
@@ -192,7 +193,8 @@ def get_thumbnails(candidates: list[dict],
             candidate['cutoutScience'] = response['default']['data'][0]['cutoutScience']
             candidate['cutoutTemplate'] = \
                 response['default']['data'][0]['cutoutTemplate']
-            candidate['cutoutDifference'] = response['default']['data'][0]['cutoutDifference']
+            candidate['cutoutDifference'] = response['default']['data'][0][
+                'cutoutDifference']
         else:
             print(f'Failed to get cutouts for {candidate["objectId"]}')
             candidate['cutoutScience'] = np.zeros((1, 1))
@@ -214,3 +216,27 @@ def deduplicate_candidates(candidates: list[dict]):
     unique_objectids, unique_indices = np.unique(all_objectids, return_index=True)
 
     return candidates[unique_indices]
+
+
+def get_candidates_in_localization(candidates: list[dict],
+                                   skymap_path: str,
+                                   cumulative_probability: float = 0.9):
+    if not isinstance(candidates, np.ndarray):
+        candidates = np.array(candidates)
+
+    ras = np.array([x['candidate']['ra'] for x in candidates])
+    decs = np.array([x['candidate']['dec'] for x in candidates])
+    # Read skymap, calculate top pixels
+    try:
+        (skymap_data, _, _, _), _ = read_flattened_skymap(skymap_path)
+    except IndexError:
+        flattened_filepath = get_flattened_skymap_path(skymap_path)
+        if not os.path.exists(flattened_filepath):
+            flatten_skymap(skymap_path, flattened_filepath)
+        (skymap_data, _, _, _), _ = read_flattened_skymap(flattened_filepath)
+
+    in_skymap_mask = in_skymap(skymap_prob=skymap_data,
+                               ra_obj=ras,
+                               dec_obj=decs,
+                               probability=cumulative_probability)
+    return candidates[in_skymap_mask]

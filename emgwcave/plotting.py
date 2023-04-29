@@ -15,12 +15,13 @@ import os
 from astropy.stats import sigma_clipped_stats
 from matplotlib.gridspec import GridSpec
 from matplotlib.backends.backend_pdf import PdfPages
+from emgwcave.skymap_utils import get_flattened_skymap_path
 
 
 def plot_skymap(mapfile, flatten=True, ras: list = None, decs: list = None):
     flattened_map_path = mapfile
     if flatten:
-        flattened_map_path = mapfile + '_flattened.fits'
+        flattened_map_path = get_flattened_skymap_path(mapfile)
         flatten_skymap(skymap_path=mapfile,
                        flatten_file_path=flattened_map_path)
 
