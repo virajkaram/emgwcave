@@ -124,7 +124,8 @@ if __name__ == '__main__':
 
     if args.filter == 'fritz':
         selected_candidates = pythonised_fritz_emgw_filter_stationary_stage(
-            selected_candidates, save=True, outdir=args.outdir)
+            selected_candidates, mjd_event=mjd_event,
+            save=True, outdir=args.outdir)
 
     print(f"Filtered {len(selected_candidates)} alerts.")
 
