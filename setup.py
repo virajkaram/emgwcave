@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="emgwcave",
-    version="0.0.0",
+    version="0.0.1",
     author="Viraj Karambelkar",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -28,10 +28,11 @@ setuptools.setup(
         "pathlib",
         "pandas",
         "astropy",
-        "penquins @ git+https://github.com/dmitryduev/penquins.git",
+        "penquins @ git+https://github.com/virajkaram/penquins.git@skymap_queries ",
         "matplotlib",
         "requests",
         "typing",
+        "ligo.skymap"
     ],
     package_data={
     }

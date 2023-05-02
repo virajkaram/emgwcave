@@ -14,8 +14,7 @@ environment. This can be done by setting the following environment variables:
 
 Then, you can use the module as follows :
 ```
-python -m emgwcave -s <skymappath> -p <cumulative probability> -end <end_date> 
--out <output_directory>
+python -m emgwcave <skymappath> <cumulative probability> <output_directory> 
 ```
 
 By default, the start date will be read from the skymap.
