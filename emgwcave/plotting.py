@@ -15,17 +15,20 @@ import os
 from astropy.stats import sigma_clipped_stats
 from matplotlib.gridspec import GridSpec
 from matplotlib.backends.backend_pdf import PdfPages
+from emgwcave.skymap_utils import get_flattened_skymap_path
 
 
-def plot_skymap(mapfile, flatten=True, ras: list = None, decs: list = None):
+def plot_skymap(mapfile, output_dir, flatten=True, ras: list = None, decs: list = None):
     flattened_map_path = mapfile
     if flatten:
-        flattened_map_path = mapfile + '_flattened.fits'
-        flatten_skymap(skymap_path=mapfile,
-                       flatten_file_path=flattened_map_path)
+        flattened_map_path = get_flattened_skymap_path(mapfile)
+        if not os.path.exists(flattened_map_path):
+            flatten_skymap(skymap_path=mapfile,
+                           flatten_file_path=flattened_map_path)
 
     fig = plt.figure()
     (prob, distmu, distsigma, distnorm), hdr = read_flattened_skymap(flattened_map_path)
+
     hp.mollview(prob, fig=fig, cmap='Oranges')
 
     if ras is not None:
@@ -40,7 +43,10 @@ def plot_skymap(mapfile, flatten=True, ras: list = None, decs: list = None):
 
         hp.projscatter(thetas, phis, marker='x', s=0.001, color='black')
 
-    plt.savefig(f"{mapfile}_mollweide.png",
+    pdfpath = os.path.join(output_dir,
+                           f"{os.path.basename(mapfile).split('.fits')[0]}_"
+                           f"molleweide.pdf")
+    plt.savefig(pdfpath,
                 bbox_inches='tight')
     plt.close()
 

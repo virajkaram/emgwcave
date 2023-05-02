@@ -5,12 +5,87 @@ from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
 from emgwcave.plotting import plot_skymap, save_thumbnails, make_full_pdf
 from emgwcave.candidate_utils import save_candidates_to_file, \
     append_photometry_to_candidates, write_photometry_to_file, get_thumbnails, \
-    deduplicate_candidates
+    deduplicate_candidates, get_candidates_in_localization
 from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
     pythonised_fritz_emgw_filter_stationary_stage
 import os
-from emgwcave.skymap_utils import read_lvc_skymap_fits, read_fermi_skymap_fits
+from emgwcave.skymap_utils import get_mjd_from_skymap
 from copy import deepcopy
+from pathlib import Path
+
+
+def setup_output_directories(output_dir: str):
+    phot_dir = os.path.join(output_dir, 'photometry')
+    thumbnails_dir = os.path.join(output_dir, 'thumbnails')
+    for d in [phot_dir, thumbnails_dir]:
+        if not os.path.exists(d):
+            Path(d).mkdir(parents=True, exist_ok=True)
+
+    return phot_dir, thumbnails_dir
+
+
+def filter_candidates(skymap_path: str | Path,
+                      cumprob: float,
+                      start_date_jd: float,
+                      end_date_jd: float,
+                      mjd_event: float,
+                      filter: str = 'fritz',
+                      instrument: str = 'ZTF',
+                      outdir='emgwcave_output',
+                      nthreads: int = 8):
+    # TODO: use different dates for jd and jdstarthist, as jdstarthist is
+    #  3-sigma detections. So the default should be search for all alerts generated in
+    #  the given time windo (i.e. now), but filter through only those that have
+    #  jdstarthist within the first 3 or 5 days since the event. This will give all
+    #  alerts that were first detected (albeit subthreshold) within the first 3 or
+    #  5 days. Also sorts the problem of getting the latest photometry point. Actually
+    #  the filter requires jd -jdstarthist < 10 days, so maybe we can use that
+    #  instead of arbitrarily large days.
+    # Set up Kowalski connection and run query
+    kowalski = connect_kowalski()
+    candidates = search_in_skymap(k=kowalski,
+                                  skymap_path=skymap_path,
+                                  cumprob=cumprob,
+                                  jd_start=start_date_jd,
+                                  jd_end=end_date_jd,
+                                  catalogs=[f'{instrument}_alerts'],
+                                  projection_kwargs=default_projection_kwargs,
+                                  max_n_threads=nthreads
+                                  )
+
+    selected_candidates = candidates['default'][f'{instrument}_alerts']
+    print(f"Retrieved {len(selected_candidates)} alerts.")
+
+    # Deduplicate candidates
+    selected_candidates = deduplicate_candidates(selected_candidates)
+    print(f"Retained {len(selected_candidates)} alerts after deduplication.")
+
+    save_candidates_to_file(deepcopy(selected_candidates),
+                            savefile=f'{outdir}/all_retrieved_alerts.csv')
+
+    # Perform a second check for candidates in the skymap
+    selected_candidates = get_candidates_in_localization(selected_candidates,
+                                                         skymap_path,
+                                                         cumprob)
+    print(f"Retained {len(selected_candidates)} alerts after localization check.")
+
+    if filter == 'fritz':
+        selected_candidates = pythonised_fritz_emgw_filter_stage_1(
+            selected_candidates)
+    print(f"Filtered {len(selected_candidates)} alerts.")
+
+    # Get full photometry history for the selected candidates
+    selected_candidates = append_photometry_to_candidates(selected_candidates)
+
+    if filter == 'fritz':
+        selected_candidates = pythonised_fritz_emgw_filter_stationary_stage(
+            selected_candidates, mjd_event=mjd_event,
+            save=True, outdir=outdir)
+
+    print(f"Filtered {len(selected_candidates)} alerts.")
+
+    return selected_candidates
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -23,10 +98,7 @@ if __name__ == '__main__':
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
     parser.add_argument("-filter", type=str, choices=['none', 'fritz'],
-                        help='What filter do you want to use?', default='none'
-                        )
-    parser.add_argument("-customfilterfile", type=str,
-                        help='File to use if using custom filter', default=None
+                        help='What filter do you want to use?', default='fritz'
                         )
     parser.add_argument("-nthreads", type=int, help="How many threads "
                                                     "to use on kowalski",
@@ -38,22 +110,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    skymap_path = args.skymappath
     if args.mjd_event is None:
-        try:
-            _, _, _, _, header = read_lvc_skymap_fits(args.skymappath)
-        except KeyError as err:
-            print(f"Could not read skymap with LVC reader, trying with Fermi - {err}")
-            try:
-                _, _, header = read_fermi_skymap_fits(args.skymappath)
-            except KeyError as exc:
-                print(f"Skymap could not be read by LVC or Fermi - {exc}")
-                raise exc
-        try:
-            mjd_event = header['MJD-OBS']
-        except Exception as err:
-            print("Error reading MJD-OBS, please provide it at commandline using"
-                  " -mjdevent")
-            raise err
+        mjd_event = get_mjd_from_skymap(skymap_path)
     else:
         mjd_event = args.mjd_event
 
@@ -65,69 +124,27 @@ if __name__ == '__main__':
 
     # Set up paths and directories
     output_dir = args.outdir
+
     savefile = os.path.join(output_dir,
-                            f"{args.instrument}_alerts_cumprob{args.cumprob}"
-                            f"_{round(start_date_jd, 2)}_{end_date_jd}.csv")
-    full_pdffile = os.path.join(output_dir,
-                                f"{os.path.basename(args.skymappath).split('.fits')[0]}"
-                                f"_{args.instrument}_alerts_cumprob{args.cumprob}"
-                                f"_{round(start_date_jd, 2)}_{round(end_date_jd, 2)}"
-                                f".pdf")
-    phot_dir = os.path.join(output_dir, 'photometry')
-    thumbnails_dir = os.path.join(output_dir, 'thumbnails')
-    for d in [phot_dir, thumbnails_dir]:
-        if not os.path.exists(d):
-            os.makedirs(d)
+                            f"{os.path.basename(skymap_path).split('.fits')[0]}"
+                            f"_{args.instrument}_alerts_cumprob{args.cumprob}"
+                            f"_{round(start_date_jd, 2)}_{round(end_date_jd, 2)}"
+                            f".csv")
 
-    # Get the filter to use
-    filter_kwargs = {}
+    full_pdffile = savefile.replace(".csv", ".pdf")
 
-    # TODO: use different dates for jd and jdstarthist, as jdstarthist is
-    #  3-sigma detections. So the default should be search for all alerts generated in
-    #  the given time windo (i.e. now), but filter through only those that have
-    #  jdstarthist within the first 3 or 5 days since the event. This will give all
-    #  alerts that were first detected (albeit subthreshold) within the first 3 or
-    #  5 days. Also sorts the problem of getting the latest photometry point. Actually
-    #  the filter requires jd -jdstarthist < 10 days, so maybe we can use that
-    #  instead of arbitrarily large days.
-    # Set up Kowalski connection and run query
-    kowalski = connect_kowalski()
-    candidates = search_in_skymap(k=kowalski,
-                                  skymap_path=args.skymappath,
-                                  cumprob=args.cumprob,
-                                  jd_start=start_date_jd,
-                                  jd_end=end_date_jd,
-                                  catalogs=[f'{args.instrument}_alerts'],
-                                  filter_kwargs=filter_kwargs,
-                                  projection_kwargs=default_projection_kwargs,
-                                  max_n_threads=args.nthreads
-                                  )
+    phot_dir, thumbnails_dir = setup_output_directories(output_dir)
 
-    selected_candidates = candidates['default'][f'{args.instrument}_alerts']
-    print(f"Retrieved {len(selected_candidates)} alerts.")
-
-    # Deduplicate candidates
-    selected_candidates = deduplicate_candidates(selected_candidates)
-    print(f"Retained {len(selected_candidates)} alerts after deduplication.")
-
-    # TODO - Recheck if all these candidates are inside the skymap
-    
-    save_candidates_to_file(deepcopy(selected_candidates),
-                            savefile=f'{args.outdir}/all_retrieved_alerts.csv')
-    if args.filter == 'fritz':
-        selected_candidates = pythonised_fritz_emgw_filter_stage_1(
-            selected_candidates)
-    print(f"Filtered {len(selected_candidates)} alerts.")
-
-    # Get full photometry history for the selected candidates
-    selected_candidates = append_photometry_to_candidates(selected_candidates)
-
-    if args.filter == 'fritz':
-        selected_candidates = pythonised_fritz_emgw_filter_stationary_stage(
-            selected_candidates, mjd_event=mjd_event,
-            save=True, outdir=args.outdir)
-
-    print(f"Filtered {len(selected_candidates)} alerts.")
+    selected_candidates = filter_candidates(skymap_path=args.skymappath,
+                                            cumprob=args.cumprob,
+                                            instrument=args.instrument,
+                                            mjd_event=mjd_event,
+                                            filter=args.filter,
+                                            start_date_jd=start_date_jd,
+                                            end_date_jd=end_date_jd,
+                                            nthreads=args.nthreads,
+                                            outdir=output_dir,
+                                            )
 
     # Get thumbnails
     selected_candidates = get_thumbnails(selected_candidates)
@@ -136,7 +153,7 @@ if __name__ == '__main__':
     ras = [x['candidate']['ra'] for x in selected_candidates]
     decs = [x['candidate']['dec'] for x in selected_candidates]
     if args.plot_skymap:
-        plot_skymap(args.skymappath, flatten=True, ras=ras, decs=decs)
+        plot_skymap(skymap_path, output_dir, flatten=True, ras=ras, decs=decs)
 
     save_thumbnails(selected_candidates,
                     thumbnails_dir=thumbnails_dir,
