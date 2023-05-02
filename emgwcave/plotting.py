@@ -22,11 +22,13 @@ def plot_skymap(mapfile, flatten=True, ras: list = None, decs: list = None):
     flattened_map_path = mapfile
     if flatten:
         flattened_map_path = get_flattened_skymap_path(mapfile)
-        flatten_skymap(skymap_path=mapfile,
-                       flatten_file_path=flattened_map_path)
+        if not os.path.exists(flattened_map_path):
+            flatten_skymap(skymap_path=mapfile,
+                           flatten_file_path=flattened_map_path)
 
     fig = plt.figure()
     (prob, distmu, distsigma, distnorm), hdr = read_flattened_skymap(flattened_map_path)
+
     hp.mollview(prob, fig=fig, cmap='Oranges')
 
     if ras is not None:
