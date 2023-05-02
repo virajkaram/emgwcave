@@ -28,7 +28,7 @@ setuptools.setup(
         "pathlib",
         "pandas",
         "astropy",
-        "penquins @ git+https://github.com/virajkaram/penquins.git",
+        "penquins @ git+https://github.com/virajkaram/penquins.git@skymap_queries ",
         "matplotlib",
         "requests",
         "typing",
