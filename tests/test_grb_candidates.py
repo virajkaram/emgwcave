@@ -9,7 +9,8 @@ from astropy.time import Time
 skymap_path = 'data/skymaps/2023-04-30T07-47-19_crossmatch-9457-9455.fits.fits'
 mjd_event = 60064.324525
 start_date_jd = mjd_event + 2400000.5
-end_date_jd = Time('2023-05-02').jd
+time_window_days = 1.675
+end_date_jd = start_date_jd + time_window_days
 outdir = 'data/output'
 
 NUM_CANDIDATES = 5
@@ -28,6 +29,7 @@ class TestGRBFiltering(unittest.TestCase):
                                                 mjd_event=mjd_event,
                                                 start_date_jd=start_date_jd,
                                                 end_date_jd=end_date_jd,
+                                                time_window_days=time_window_days,
                                                 outdir=outdir,
                                                 )
         self.assertEqual(len(selected_candidates), NUM_CANDIDATES)
