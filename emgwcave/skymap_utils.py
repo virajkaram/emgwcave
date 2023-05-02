@@ -87,8 +87,26 @@ def in_skymap(skymap_prob: np.ndarray,
     # pix = hp.ang2pix(nside, ra_obj, dec_obj, lonlat=True)
     # return pix in top_indices
     npix = len(skymap_prob)
-    print(f"Npix : {skymap_prob}")
     nside = hp.npix2nside(npix)
     ipix = hp.ang2pix(nside, ra_obj, dec_obj, lonlat=True)
     credible_levels = find_greedy_credible_levels(skymap_prob)
     return credible_levels[ipix] <= probability
+
+
+def get_mjd_from_skymap(skymap_path):
+    try:
+        _, _, _, _, header = read_lvc_skymap_fits(skymap_path)
+    except KeyError as err:
+        print(f"Could not read skymap with LVC reader, trying with Fermi - {err}")
+        try:
+            _, _, header = read_fermi_skymap_fits(args.skymappath)
+        except KeyError as exc:
+            print(f"Skymap could not be read by LVC or Fermi - {exc}")
+            raise exc
+    try:
+        mjd_event = header['MJD-OBS']
+    except Exception as err:
+        print("Error reading MJD-OBS, please provide it at commandline using"
+              " -mjdevent")
+        raise err
+    return mjd_event

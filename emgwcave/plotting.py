@@ -18,7 +18,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from emgwcave.skymap_utils import get_flattened_skymap_path
 
 
-def plot_skymap(mapfile, flatten=True, ras: list = None, decs: list = None):
+def plot_skymap(mapfile, output_dir, flatten=True, ras: list = None, decs: list = None):
     flattened_map_path = mapfile
     if flatten:
         flattened_map_path = get_flattened_skymap_path(mapfile)
@@ -43,7 +43,10 @@ def plot_skymap(mapfile, flatten=True, ras: list = None, decs: list = None):
 
         hp.projscatter(thetas, phis, marker='x', s=0.001, color='black')
 
-    plt.savefig(f"{mapfile}_mollweide.png",
+    pdfpath = os.path.join(output_dir,
+                           f"{os.path.basename(mapfile).split('.fits')[0]}_"
+                           f"molleweide.pdf")
+    plt.savefig(pdfpath,
                 bbox_inches='tight')
     plt.close()
 
