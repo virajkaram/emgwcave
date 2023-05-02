@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 from emgwcave.kowalski_utils import query_aux_alerts, connect_kowalski, get_find_query
 from emgwcave.skymap_utils import read_flattened_skymap, in_skymap, flatten_skymap, \
-    get_flattened_skymap_path, read_fermi_skymap_fits
+    get_flattened_skymap_path
 import numpy as np
 from copy import deepcopy
 from typing import Optional
@@ -228,17 +228,14 @@ def get_candidates_in_localization(candidates: list[dict],
     decs = np.array([x['candidate']['dec'] for x in candidates])
     # Read skymap, calculate top pixels
     try:
-        (skymap_data, _, _, _), _ = read_flattened_skymap(skymap_path)
+        (skymap_prob, _, _, _), _ = read_flattened_skymap(skymap_path)
     except:
-        try:
-            flattened_filepath = get_flattened_skymap_path(skymap_path)
-            if not os.path.exists(flattened_filepath):
-                flatten_skymap(skymap_path, flattened_filepath)
-            (skymap_data, _, _, _), _ = read_flattened_skymap(flattened_filepath)
-        except:
-            skymap_data, _, _ = read_fermi_skymap_fits(skymap_path)
+        flattened_filepath = get_flattened_skymap_path(skymap_path)
+        if not os.path.exists(flattened_filepath):
+            flatten_skymap(skymap_path, flattened_filepath)
+        (skymap_prob, _, _, _), _ = read_flattened_skymap(flattened_filepath)
 
-    in_skymap_mask = in_skymap(skymap_prob=skymap_data,
+    in_skymap_mask = in_skymap(skymap_prob=skymap_prob,
                                ra_obj=ras,
                                dec_obj=decs,
                                probability=cumulative_probability)
