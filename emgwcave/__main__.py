@@ -29,6 +29,7 @@ def filter_candidates(skymap_path: str | Path,
                       start_date_jd: float,
                       end_date_jd: float,
                       mjd_event: float,
+                      time_window_days: float,
                       filter: str = 'fritz',
                       instrument: str = 'ZTF',
                       outdir='emgwcave_output',
@@ -41,6 +42,7 @@ def filter_candidates(skymap_path: str | Path,
     #  5 days. Also sorts the problem of getting the latest photometry point. Actually
     #  the filter requires jd -jdstarthist < 10 days, so maybe we can use that
     #  instead of arbitrarily large days.
+    jd_event = mjd_event + 2400000.5
     # Set up Kowalski connection and run query
     kowalski = connect_kowalski()
     candidates = search_in_skymap(k=kowalski,
@@ -48,6 +50,8 @@ def filter_candidates(skymap_path: str | Path,
                                   cumprob=cumprob,
                                   jd_start=start_date_jd,
                                   jd_end=end_date_jd,
+                                  jdstarthist_start=jd_event,
+                                  jdstarthist_end=jd_event + time_window_days,
                                   catalogs=[f'{instrument}_alerts'],
                                   projection_kwargs=default_projection_kwargs,
                                   max_n_threads=nthreads
@@ -91,9 +95,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("skymappath", type=str)
     parser.add_argument("cumprob", type=float)
-    parser.add_argument("end_date", type=str, help='2023-04-23T00:00:00')
     parser.add_argument("outdir", type=str,
                         help='name of output directory for plots etc.')
+    parser.add_argument('-time_window_days', type=float, default=5.0,
+                        help="Search for candidates that were first "
+                             "detected within these many days since the event")
+    parser.add_argument("-end_date", type=str,
+                        help='Search for candidates detected '
+                             'before this day, e.g. 2023-04-23T00:00:00 '
+                             'default = event_day + time_window + 10 days '
+                             '(10 days = age constraint in filter) ',
+                        default=None
+                        )
     parser.add_argument("-start_date", type=str, default=None,
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
@@ -120,7 +133,13 @@ if __name__ == '__main__':
         start_date_jd = mjd_event + 2400000.5
     else:
         start_date_jd = Time(args.start_date).jd
-    end_date_jd = Time(args.end_date).jd
+
+    time_window_days = args.time_window_days
+
+    if args.end_date is None:
+        end_date_jd = mjd_event + 2400000.5 + time_window_days + 10
+    else:
+        end_date_jd = Time(args.end_date).jd
 
     # Set up paths and directories
     output_dir = args.outdir
@@ -137,6 +156,7 @@ if __name__ == '__main__':
 
     selected_candidates = filter_candidates(skymap_path=args.skymappath,
                                             cumprob=args.cumprob,
+                                            time_window_days=args.time_window_days,
                                             instrument=args.instrument,
                                             mjd_event=mjd_event,
                                             filter=args.filter,
