@@ -12,6 +12,7 @@ import os
 from emgwcave.skymap_utils import read_lvc_skymap_fits, read_fermi_skymap_fits
 from copy import deepcopy
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("skymappath", type=str)
@@ -23,10 +24,7 @@ if __name__ == '__main__':
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
     parser.add_argument("-filter", type=str, choices=['none', 'fritz'],
-                        help='What filter do you want to use?', default='none'
-                        )
-    parser.add_argument("-customfilterfile", type=str,
-                        help='File to use if using custom filter', default=None
+                        help='What filter do you want to use?', default='fritz'
                         )
     parser.add_argument("-nthreads", type=int, help="How many threads "
                                                     "to use on kowalski",
@@ -79,8 +77,6 @@ if __name__ == '__main__':
         if not os.path.exists(d):
             os.makedirs(d)
 
-    # Get the filter to use
-    filter_kwargs = {}
 
     # TODO: use different dates for jd and jdstarthist, as jdstarthist is
     #  3-sigma detections. So the default should be search for all alerts generated in
@@ -98,7 +94,6 @@ if __name__ == '__main__':
                                   jd_start=start_date_jd,
                                   jd_end=end_date_jd,
                                   catalogs=[f'{args.instrument}_alerts'],
-                                  filter_kwargs=filter_kwargs,
                                   projection_kwargs=default_projection_kwargs,
                                   max_n_threads=args.nthreads
                                   )
