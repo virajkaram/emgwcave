@@ -196,6 +196,30 @@ def make_full_pdf(selected_candidates: dict,
             ax.text(0, 8, name, size=14)
             ax.text(0, 6, f"RA= {candidate['candidate']['ra']}", size=12)
             ax.text(0, 5, f"Dec = {candidate['candidate']['dec']}", size=12)
+
+            cross_matches = candidate['cross_matches']
+
+            nearest_clu_text = 'CLU: None'
+            if len(cross_matches['CLU_20190625']) > 0:
+                clu_galaxies = np.array(cross_matches['CLU_20190625'])
+                clu_distances = np.array([x['coordinates']['distance_arcsec']
+                                          for x in clu_galaxies])
+                clu_min_dist_ind = np.argmin(clu_distances)
+
+                nearest_clu = clu_galaxies[clu_min_dist_ind]
+                nearest_clu_text = f"CLU: z = {nearest_clu['z']:.3f}, " \
+                                   f"{nearest_clu['zerr']:.2f}"
+
+            ax.text(0, 3, nearest_clu_text, size=10)
+
+            allwise_text = 'WISE: None'
+            if len(cross_matches['AllWISE']) > 0:
+                w1mw2 = f"{cross_matches['AllWISE'][0]['w1mpro'] - cross_matches['AllWISE'][0]['w2mpro']:.2f}"
+                w3mw4 = f"{cross_matches['AllWISE'][0]['w3mpro'] - cross_matches['AllWISE'][0]['w4mpro']:.2f}"
+
+                allwise_text = f"WISE: W1-W2 = {w1mw2} W3-W4 = {w3mw4}"
+            ax.text(0, 2, allwise_text, size=8)
+
             ax.axis('off')
             pdf.savefig(fig)
             plt.close()
