@@ -240,3 +240,21 @@ def get_candidates_in_localization(candidates: list[dict],
                                dec_obj=decs,
                                probability=cumulative_probability)
     return candidates[in_skymap_mask]
+
+
+def get_candidates_clu_crossmatch(candidates: list[dict]):
+    """Crossmatch candidates with other catalogs"""
+    if not isinstance(candidates, np.ndarray):
+        candidates = np.array(candidates)
+
+    projection = {'cross_matches': 1}
+    k = connect_kowalski()
+    for candidate in candidates:
+        name = candidate['objectId']
+        cross_matches = query_aux_alerts(k=k,
+                                         name=name,
+                                         projection=projection)
+
+        candidate['cross_matches'] = cross_matches['cross_matches']
+
+    return candidates

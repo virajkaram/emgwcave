@@ -5,7 +5,8 @@ from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
 from emgwcave.plotting import plot_skymap, save_thumbnails, make_full_pdf
 from emgwcave.candidate_utils import save_candidates_to_file, \
     append_photometry_to_candidates, write_photometry_to_file, get_thumbnails, \
-    deduplicate_candidates, get_candidates_in_localization
+    deduplicate_candidates, get_candidates_in_localization, \
+    get_candidates_clu_crossmatch
 from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
     pythonised_fritz_emgw_filter_stationary_stage
 import os
@@ -87,6 +88,8 @@ def filter_candidates(skymap_path: str | Path,
             save=True, outdir=outdir)
 
     print(f"Filtered {len(selected_candidates)} alerts.")
+
+    selected_candidates = get_candidates_clu_crossmatch(selected_candidates)
 
     return selected_candidates
 
