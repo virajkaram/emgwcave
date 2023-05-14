@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
 import matplotlib
-
-matplotlib.use('Agg')
 import healpy as hp
 import pandas as pd
 
@@ -16,6 +14,7 @@ from astropy.stats import sigma_clipped_stats
 from matplotlib.gridspec import GridSpec
 from matplotlib.backends.backend_pdf import PdfPages
 from emgwcave.skymap_utils import get_flattened_skymap_path
+matplotlib.use('Agg')
 
 
 def plot_skymap(mapfile, output_dir, flatten=True, ras: list = None, decs: list = None):
@@ -52,7 +51,8 @@ def plot_skymap(mapfile, output_dir, flatten=True, ras: list = None, decs: list 
 
 
 def get_data_from_bytes(iobyte):
-    data = fits.open(io.BytesIO(gzip.open(io.BytesIO(iobyte), 'rb').read()))[0].data
+    with fits.open(io.BytesIO(gzip.open(io.BytesIO(iobyte), 'rb').read())) as f:
+        data = f[0].data
     return data
 
 
@@ -129,7 +129,9 @@ def plot_photometry(photometry_df: pd.DataFrame,
         ax.plot(df[undetected]['mjd'] - mjd0, df[undetected]['diffmaglim'], 'v',
                 color=color_dict[filt], alpha=0.3)
 
-    ax.invert_yaxis()
+    ax.set_ylim(photometry_df['magpsf'].max() + 0.3,
+                photometry_df['magpsf'].min() - 0.3)
+    ax.set_xlim(-0.5, photometry_df['mjd'].max() - mjd0 + 0.2)
 
     if save:
         plt.savefig(savefile, bbox_inches='tight')
@@ -138,11 +140,17 @@ def plot_photometry(photometry_df: pd.DataFrame,
     return ax
 
 
-def make_full_pdf(selected_candidates: dict,
+def make_full_pdf(selected_candidates: list[dict],
                   thumbnails_dir: str | Path,
                   phot_dir: str | Path,
                   pdffilename: str,
                   mjd0=0):
+    if not isinstance(selected_candidates, np.ndarray):
+        selected_candidates = np.array(selected_candidates)
+
+    annotation_ids = np.array([candidate['annotation_id']
+                               for candidate in selected_candidates])
+    selected_candidates = selected_candidates[np.argsort(annotation_ids)]
     with PdfPages(pdffilename) as pdf:
         for candidate in selected_candidates:
             fig = plt.figure()
@@ -207,18 +215,20 @@ def make_full_pdf(selected_candidates: dict,
                 clu_min_dist_ind = np.argmin(clu_distances)
 
                 nearest_clu = clu_galaxies[clu_min_dist_ind]
-                nearest_clu_text = f"CLU: z = {nearest_clu['z']:.3f}, " \
-                                   f"{nearest_clu['zerr']:.2f}"
-
+                if 'z_err' in nearest_clu.keys():
+                    nearest_clu_text = f"CLU: z = {nearest_clu['z']:.3f}, " \
+                                       f"{nearest_clu['z_err']:.2f}"
+                else:
+                    nearest_clu_text = f"CLU: z = {nearest_clu['z']:.3f}"
             ax.text(0, 3, nearest_clu_text, size=10)
+            ax.text(0, 2, candidate['annotations'], size=8)
 
-            allwise_text = 'WISE: None'
-            if len(cross_matches['AllWISE']) > 0:
-                w1mw2 = f"{cross_matches['AllWISE'][0]['w1mpro'] - cross_matches['AllWISE'][0]['w2mpro']:.2f}"
-                w3mw4 = f"{cross_matches['AllWISE'][0]['w3mpro'] - cross_matches['AllWISE'][0]['w4mpro']:.2f}"
+            if len(cross_matches['PS1_STRM']) > 0:
+                ps1_xmatch = cross_matches['PS1_STRM'][0]
 
-                allwise_text = f"WISE: W1-W2 = {w1mw2} W3-W4 = {w3mw4}"
-            ax.text(0, 2, allwise_text, size=8)
+                ax.text(0, 1, f"Pstar = {ps1_xmatch['prob_Star']:.2f}, "
+                              f"Pgal = {ps1_xmatch['prob_Galaxy']:.2f}", size=8)
+                ax.text(0, 0, f"Pqso = {ps1_xmatch['prob_QSO']:.2f}", size=8)
 
             ax.axis('off')
             pdf.savefig(fig)

@@ -13,9 +13,9 @@ time_window_days = 1.675
 end_date_jd = start_date_jd + time_window_days
 outdir = 'data/output'
 
-NUM_CANDIDATES = 5
+NUM_CANDIDATES = 6
 CANDIDATE_NAMES = ['ZTF23aagfzjt', 'ZTF23aaitoyy', 'ZTF23aaitpey', 'ZTF23aaitrmv',
-                   'ZTF23aaitsom']
+                   'ZTF23aaitsjm', 'ZTF23aaitsom']
 
 
 class TestGRBFiltering(unittest.TestCase):
@@ -46,6 +46,7 @@ if __name__ == '__main__':
                                             start_date_jd=start_date_jd,
                                             end_date_jd=end_date_jd,
                                             outdir=outdir,
+                                            time_window_days=time_window_days,
                                             )
     print("Num candidates:", len(selected_candidates))
     print(f"Candidate "
