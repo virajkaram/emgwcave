@@ -141,3 +141,30 @@ def get_find_query(catalog: str,
         }
     }
     return q
+
+
+def get_cone_search_query(coords_dict: dict,
+                          catalog: str,
+                          projection: dict,
+                          filter: dict = {},
+                          cone_search_radius: float = 2):
+    query = {
+        "query_type": "cone_search",
+        "query": {
+            "object_coordinates": {
+                "cone_search_radius": cone_search_radius,
+                "cone_search_unit": "arcsec",
+                "radec": coords_dict,
+            },
+            "catalogs": {
+                catalog: {
+                    "filter": filter,
+                    "projection": projection,
+                }
+            }
+        },
+        "kwargs": {
+            "filter_first": False
+        }
+    }
+    return query

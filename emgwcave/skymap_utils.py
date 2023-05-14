@@ -5,6 +5,7 @@ from astropy.io import fits
 from scipy.stats import norm
 import os
 from astropy.table import Table
+from astropy.time import Time
 
 
 def get_flattened_skymap_path(skymap_path):
@@ -27,10 +28,10 @@ def read_lvc_skymap_fits(filename):
 def read_fermi_skymap_fits(filename):
     h = fits.open(filename)
     data = Table(h[1].data)
-
     uniq = np.array(data['UNIQ'])
     prob_density = np.array(data['PROBDENSITY'])
-
+    # prob_density = np.array(data['PROBABILITY'])
+    # prob_density = np.array(data['PROB'])
     header = h[1].header
     return uniq, prob_density, header
 
@@ -99,14 +100,17 @@ def get_mjd_from_skymap(skymap_path):
     except KeyError as err:
         print(f"Could not read skymap with LVC reader, trying with Fermi - {err}")
         try:
-            _, _, header = read_fermi_skymap_fits(args.skymappath)
+            _, _, header = read_fermi_skymap_fits(skymap_path)
         except KeyError as exc:
             print(f"Skymap could not be read by LVC or Fermi - {exc}")
             raise exc
-    try:
+
+    if 'MJD-OBS' in header:
         mjd_event = header['MJD-OBS']
-    except Exception as err:
-        print("Error reading MJD-OBS, please provide it at commandline using"
-              " -mjdevent")
-        raise err
+    elif 'DATE-OBS' in header:
+        mjd_event = Time(header['DATE-OBS']).mjd
+    else:
+        err = "Error reading MJD-OBS, please provide event date on " \
+              "commandline using -date_event. e.g. 2023-04-04T22:30:00"
+        raise KeyError(err)
     return mjd_event

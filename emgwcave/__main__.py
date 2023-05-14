@@ -6,7 +6,7 @@ from emgwcave.plotting import plot_skymap, save_thumbnails, make_full_pdf
 from emgwcave.candidate_utils import save_candidates_to_file, \
     append_photometry_to_candidates, write_photometry_to_file, get_thumbnails, \
     deduplicate_candidates, get_candidates_in_localization, \
-    get_candidates_clu_crossmatch
+    get_candidates_crossmatch, annotate_candidates
 from emgwcave.fritz_filter import pythonised_fritz_emgw_filter_stage_1, \
     pythonised_fritz_emgw_filter_stationary_stage
 import os
@@ -34,7 +34,8 @@ def filter_candidates(skymap_path: str | Path,
                       filter: str = 'fritz',
                       instrument: str = 'ZTF',
                       outdir='emgwcave_output',
-                      nthreads: int = 8):
+                      nthreads: int = 8,
+                      min_ndethist: int = 1):
     # TODO: use different dates for jd and jdstarthist, as jdstarthist is
     #  3-sigma detections. So the default should be search for all alerts generated in
     #  the given time windo (i.e. now), but filter through only those that have
@@ -55,7 +56,9 @@ def filter_candidates(skymap_path: str | Path,
                                   jdstarthist_end=jd_event + time_window_days,
                                   catalogs=[f'{instrument}_alerts'],
                                   projection_kwargs=default_projection_kwargs,
-                                  max_n_threads=nthreads
+                                  max_n_threads=nthreads,
+                                  filter_kwargs={"candidate.ndethist":
+                                                     {"$gt": min_ndethist}}
                                   )
 
     selected_candidates = candidates['default'][f'{instrument}_alerts']
@@ -89,8 +92,8 @@ def filter_candidates(skymap_path: str | Path,
 
     print(f"Filtered {len(selected_candidates)} alerts.")
 
-    selected_candidates = get_candidates_clu_crossmatch(selected_candidates)
-
+    selected_candidates = get_candidates_crossmatch(selected_candidates)
+    selected_candidates = annotate_candidates(selected_candidates)
     return selected_candidates
 
 
@@ -113,6 +116,7 @@ if __name__ == '__main__':
     parser.add_argument("-start_date", type=str, default=None,
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
+    parser.add_argument("-min_ndethist", type=int, default=1)
     parser.add_argument("-filter", type=str, choices=['none', 'fritz'],
                         help='What filter do you want to use?', default='fritz'
                         )
@@ -122,15 +126,16 @@ if __name__ == '__main__':
     parser.add_argument("-plot_skymap", action="store_true")
     parser.add_argument("-plot_lightcurves_separately", action="store_true")
     parser.add_argument("-plot_thumbnails_separately", action="store_true")
-    parser.add_argument("-mjd_event", type=float, default=None)
+    parser.add_argument("-date_event", type=str, default=None,
+                        help="e.g. 2023-04-22T00:00:00")
 
     args = parser.parse_args()
 
     skymap_path = args.skymappath
-    if args.mjd_event is None:
+    if args.date_event is None:
         mjd_event = get_mjd_from_skymap(skymap_path)
     else:
-        mjd_event = args.mjd_event
+        mjd_event = Time(args.date_event).mjd
 
     if args.start_date is None:
         start_date_jd = mjd_event + 2400000.5
@@ -161,6 +166,7 @@ if __name__ == '__main__':
                                             cumprob=args.cumprob,
                                             time_window_days=args.time_window_days,
                                             instrument=args.instrument,
+                                            min_ndethist=args.min_ndethist,
                                             mjd_event=mjd_event,
                                             filter=args.filter,
                                             start_date_jd=start_date_jd,

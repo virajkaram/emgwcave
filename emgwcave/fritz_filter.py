@@ -19,19 +19,19 @@ def pythonised_fritz_emgw_filter_stage_1(sources: list[dict]):
                                                                  1]
         source['real_flag'] = candidate['drb'] > 0.3
         source['young_flag'] = candidate['jd'] - candidate['jdstarthist'] < 10
-        source['asteroid_flag'] = (0 < candidate['ssdistnr'] < 10) & (
-                candidate['ssmagnr'] < 20)
-        source['point_underneath_flag'] = (candidate['distpsnr1'] < 2) & (
+        source['asteroid_flag'] = (0 <= candidate['ssdistnr'] < 10)  # & (
+        # candidate['ssmagnr'] < 20) # TODO: Figure out why this was here
+        source['point_underneath_flag'] = (0 <= candidate['distpsnr1'] < 2) & (
                 candidate['sgscore1'] > 0.76)
-        source['brightstar_flag'] = ((0 < candidate['distpsnr1'] < 20) & (
-                0 < candidate['srmag1'] < 15) & (candidate['sgscore1'] > 0.49)) \
-                                    | ((0 < candidate['distpsnr2'] < 20) & (
-                0 < candidate['srmag2'] < 15) & (candidate['sgscore2'] > 0.49)) \
-                                    | ((0 < candidate['distpsnr3'] < 20) & (
-                0 < candidate['srmag3'] < 15) & (candidate['sgscore3'] > 0.49)) \
+        source['brightstar_flag'] = ((0 <= candidate['distpsnr1'] < 20) & (
+                0 <= candidate['srmag1'] < 15) & (candidate['sgscore1'] > 0.49)) \
+                                    | ((0 <= candidate['distpsnr2'] < 20) & (
+                0 <= candidate['srmag2'] < 15) & (candidate['sgscore2'] > 0.49)) \
+                                    | ((0 <= candidate['distpsnr3'] < 20) & (
+                0 <= candidate['srmag3'] < 15) & (candidate['sgscore3'] > 0.49)) \
                                     | ((candidate['sgscore1'] == 0.5) & (
-                0 < candidate['distpsnr1'] < 0.5) & ((0 < candidate['sgmag1'] < 17) | (
-                0 < candidate['srmag1'] < 17) | (0 < candidate['simag1'] < 17)))
+                0 <= candidate['distpsnr1'] < 0.5) & ((0 <= candidate['sgmag1'] < 17) | (
+                0 <= candidate['srmag1'] < 17) | (0 <= candidate['simag1'] < 17)))
 
         source['variable_source_flag'] = ((0 < candidate['distnr'] < 0.4) & (
                 candidate['magnr'] < 19) & (candidate['age'] > 90)) \

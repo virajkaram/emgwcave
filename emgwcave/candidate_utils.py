@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
-from emgwcave.kowalski_utils import query_aux_alerts, connect_kowalski, get_find_query
+from emgwcave.kowalski_utils import query_aux_alerts, connect_kowalski, \
+    get_find_query, get_cone_search_query
 from emgwcave.skymap_utils import read_flattened_skymap, in_skymap, flatten_skymap, \
     get_flattened_skymap_path
 import numpy as np
@@ -242,7 +243,7 @@ def get_candidates_in_localization(candidates: list[dict],
     return candidates[in_skymap_mask]
 
 
-def get_candidates_clu_crossmatch(candidates: list[dict]):
+def get_candidates_crossmatch(candidates: list[dict]):
     """Crossmatch candidates with other catalogs"""
     if not isinstance(candidates, np.ndarray):
         candidates = np.array(candidates)
@@ -251,10 +252,106 @@ def get_candidates_clu_crossmatch(candidates: list[dict]):
     k = connect_kowalski()
     for candidate in candidates:
         name = candidate['objectId']
+        ra = candidate['candidate']['ra']
+        dec = candidate['candidate']['dec']
+        coords_dict = {name: [ra, dec]}
         cross_matches = query_aux_alerts(k=k,
                                          name=name,
                                          projection=projection)
 
         candidate['cross_matches'] = cross_matches['cross_matches']
+
+        query = get_cone_search_query(coords_dict=coords_dict,
+                                      catalog='milliquas_v6',
+                                      projection={'Name': 1,
+                                                  'Qpct': 1,
+                                                  'RA': 1, 'DEC': 1, 'Z': 1},
+                                      )
+        result = k.query(query=query)['default']['data']['milliquas_v6'][name]
+        candidate['cross_matches']['milliquas'] = result
+
+
+    return candidates
+
+
+def get_candidates_milliquas_crossmatch(candidates: list[dict]|np.ndarray):
+    """Crossmatch candidates with MILLIQUAS catalog"""
+
+    if not isinstance(candidates, np.ndarray):
+        candidates = np.array(candidates)
+
+    k = connect_kowalski()
+    for candidate in candidates:
+        name = candidate['objectId']
+        ra = candidate['candidate']['ra']
+        dec = candidate['candidate']['dec']
+        coords_dict = {name: [ra, dec]}
+        query = get_cone_search_query(coords_dict=coords_dict,
+                                      catalog='milliquas_v6',
+                                      projection={'Name': 1,
+                                                  'Qpct': 1,
+                                                  'RA': 1, 'DEC': 1, 'Z': 1},
+                                      )
+
+        result = k.query(query=query)['default']['data']['milliquas_v6'][name]
+
+        if 'cross_matches' not in candidate:
+            candidate['cross_matches'] = {}
+        candidate['cross_matches']['milliquas'] \
+            = result
+
+        query = get_cone_search_query(coords_dict=coords_dict,
+                                      catalog='PS1_STRM',
+                                      projection={'prob_Galaxy': 1,
+                                                  'prob_Star': 1,
+                                                  'prob_QSO': 1, 'z_phot': 1,
+                                                  'class': 1,
+                                                  'z_photErr': 1},
+                                      )
+
+        result = k.query(query=query)['default']['data']['milliquas_v6'][name]
+        candidate['cross_matches']['PS1_STRM'] = result
+    return candidates
+
+
+def annotate_candidates(candidates: list[dict]):
+    if not isinstance(candidates, np.ndarray):
+        candidates = np.array(candidates)
+
+    if 'cross_matches' not in candidates[0]:
+        candidates = get_candidates_crossmatch(candidates)
+
+    for candidate in candidates:
+        candidate['annotations'] = ''
+        candidate['annotation_id'] = 10
+        milliquas_xmatch = candidate['cross_matches']['milliquas']
+        wise_xmatch = candidate['cross_matches']['AllWISE']
+        clu_xmatch = candidate['cross_matches']['CLU_20190625']
+        ps1_strm_xmatch = candidate['cross_matches']['PS1_STRM']
+        if len(clu_xmatch) > 0:
+            candidate['annotation_id'] = 1
+
+        if len(ps1_strm_xmatch) > 0:
+            if ps1_strm_xmatch[0]['class'] == 'QSO':
+                candidate['annotations'] \
+                    = f"likely QSO (PS1_STRM)"
+                candidate['annotation_id'] = 99
+            elif ps1_strm_xmatch[0]['class'] == 'STAR':
+                candidate['annotations'] = \
+                    f"likely STAR (PS1_STRM)"
+                candidate['annotation_id'] = 90
+        if len(milliquas_xmatch) > 0:
+            candidate['annotations'] = f"likely QSO (MQ P " \
+                                       f"= {milliquas_xmatch[0]['Qpct']}%)"
+            candidate['annotation_id'] = 100
+
+        elif len(wise_xmatch) > 0:
+            w1mw2 = wise_xmatch[0]['w1mpro'] - wise_xmatch[0]['w2mpro']
+            if w1mw2 > 0.5:
+                candidate['annotations'] = f"likely QSO WISE W1-W2 = {w1mw2:.2f})"
+                candidate['annotation_id'] = 99
+            else:
+                candidate['annotations'] = f"WISE W1-W2 = {w1mw2:.2f}"
+                candidate['annotation_id'] = 50
 
     return candidates
