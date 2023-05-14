@@ -15,7 +15,7 @@ outdir = 'data/output'
 
 NUM_CANDIDATES = 6
 CANDIDATE_NAMES = ['ZTF23aagfzjt', 'ZTF23aaitoyy', 'ZTF23aaitpey', 'ZTF23aaitrmv',
-                   'ZTF23aaitsom', 'ZTF23aaitsjm']
+                   'ZTF23aaitsjm', 'ZTF23aaitsom']
 
 
 class TestGRBFiltering(unittest.TestCase):
