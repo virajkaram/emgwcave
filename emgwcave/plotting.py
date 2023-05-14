@@ -51,7 +51,7 @@ def plot_skymap(mapfile, output_dir, flatten=True, ras: list = None, decs: list 
 
 
 def get_data_from_bytes(iobyte):
-    with fits.open(io.BytesIO(gzip.open(io.BytesIO(iobyte), 'rb').read())) as f
+    with fits.open(io.BytesIO(gzip.open(io.BytesIO(iobyte), 'rb').read())) as f:
         data = f[0].data
     return data
 

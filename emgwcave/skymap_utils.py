@@ -13,26 +13,27 @@ def get_flattened_skymap_path(skymap_path):
 
 
 def read_lvc_skymap_fits(filename):
-    h = fits.open(filename)
-    data = Table(h[1].data)
+    with fits.open(filename) as h:
+        data = Table(h[1].data)
+        header = h[1].header
 
     prob_density = np.array(data['PROBDENSITY'])
     distmu = np.array(data['DISTMU'])
     distsigma = np.array(data['DISTSIGMA'])
     distnorm = np.array(data['DISTNORM'])
 
-    header = h[1].header
     return prob_density, distmu, distsigma, distnorm, header
 
 
 def read_fermi_skymap_fits(filename):
-    h = fits.open(filename)
-    data = Table(h[1].data)
+    with fits.open(filename) as h:
+        data = Table(h[1].data)
+        header = h[1].header
     uniq = np.array(data['UNIQ'])
     prob_density = np.array(data['PROBDENSITY'])
     # prob_density = np.array(data['PROBABILITY'])
     # prob_density = np.array(data['PROB'])
-    header = h[1].header
+
     return uniq, prob_density, header
 
 
