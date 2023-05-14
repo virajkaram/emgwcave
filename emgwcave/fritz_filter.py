@@ -19,8 +19,8 @@ def pythonised_fritz_emgw_filter_stage_1(sources: list[dict]):
                                                                  1]
         source['real_flag'] = candidate['drb'] > 0.3
         source['young_flag'] = candidate['jd'] - candidate['jdstarthist'] < 10
-        source['asteroid_flag'] = (0 <= candidate['ssdistnr'] < 10)  # & (
-        # candidate['ssmagnr'] < 20) # TODO: Figure out why this was here
+        source['asteroid_flag'] = (0 <= candidate['ssdistnr'] < 10)  \
+                                  & (candidate['ssmagnr'] < 20)
         source['point_underneath_flag'] = (0 <= candidate['distpsnr1'] < 2) & (
                 candidate['sgscore1'] > 0.76)
         source['brightstar_flag'] = ((0 <= candidate['distpsnr1'] < 20) & (
