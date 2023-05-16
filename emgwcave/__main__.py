@@ -1,4 +1,6 @@
 import argparse
+
+import pandas as pd
 from astropy.time import Time
 from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
     default_projection_kwargs
@@ -13,6 +15,8 @@ import os
 from emgwcave.skymap_utils import get_mjd_from_skymap
 from copy import deepcopy
 from pathlib import Path
+from emgwcave.fritz_utils import query_candidates_fritz
+import numpy as np
 
 
 def setup_output_directories(output_dir: str):
@@ -76,10 +80,12 @@ def filter_candidates(skymap_path: str | Path,
                                                          skymap_path,
                                                          cumprob)
     print(f"Retained {len(selected_candidates)} alerts after localization check.")
+    save_candidates_to_file(deepcopy(selected_candidates),
+                            savefile=f'{outdir}/alerts_inside_localization.csv')
 
     if filter == 'fritz':
         selected_candidates = pythonised_fritz_emgw_filter_stage_1(
-            selected_candidates)
+            selected_candidates, save=True, outdir=outdir)
     print(f"Filtered {len(selected_candidates)} alerts.")
 
     # Get full photometry history for the selected candidates
@@ -128,6 +134,11 @@ if __name__ == '__main__':
     parser.add_argument("-plot_thumbnails_separately", action="store_true")
     parser.add_argument("-date_event", type=str, default=None,
                         help="e.g. 2023-04-22T00:00:00")
+    parser.add_argument("-do_fritz_comparison", action="store_true")
+    parser.add_argument("-localization_name", type=str, default=None,
+                        help="e.g. glg_healpix_..fit")
+    parser.add_argument("-groupids", type=str, default='48',
+                        help="Group ID on fritz, e.g. 48,49")
 
     args = parser.parse_args()
 
@@ -201,4 +212,31 @@ if __name__ == '__main__':
                   pdffilename=full_pdffile,
                   mjd0=mjd_event)
 
-    # app.run(debug=True, port=8000)
+    if args.do_fritz_comparison:
+        if args.localization_name is None:
+            raise ValueError("Please provide localization name with -localization_name")
+        start_date_str = Time(start_date_jd, format='jd').iso.split(' ')[0]
+        end_date_str = Time(end_date_jd, format='jd').iso.split(' ')[0]
+        localization_dateobs = Time(mjd_event, format='mjd').isot
+        fritz_candidates = query_candidates_fritz(startdate=start_date_str,
+                                                  enddate=end_date_str,
+                                                  localization_name=args.localization_name,
+                                                  localization_dateobs=localization_dateobs,
+                                                  localizationCumprob=args.cumprob,
+                                                  groupids=args.groupids
+                                                  )
+        fritz_candidate_ztf_names = np.array([x['id'] for x in fritz_candidates])
+
+        np.savetxt(os.path.join(output_dir, 'fritz_candidates.txt'),
+                   fritz_candidate_ztf_names, fmt='%s')
+
+        cave_candidates = pd.read_csv(savefile)
+        cave_candidate_ztf_names = np.array(cave_candidates['objectId'])
+        print(f"Found {len(cave_candidate_ztf_names)} candidates in CAVE")
+        print(f"Found {len(fritz_candidate_ztf_names)} candidates in Fritz")
+        missing_cave_candidates = np.setdiff1d(fritz_candidate_ztf_names,
+                                               cave_candidate_ztf_names)
+        print(f"Candidates in Fritz but not in CAVE : {missing_cave_candidates}")
+        missing_fritz_candidates = np.setdiff1d(cave_candidate_ztf_names,
+                                                fritz_candidate_ztf_names)
+        print(f"Candidates in CAVE but not in Fritz : {missing_fritz_candidates}")

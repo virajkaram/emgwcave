@@ -5,7 +5,8 @@ from copy import deepcopy
 fritz_emgw_filter = {}
 
 
-def pythonised_fritz_emgw_filter_stage_1(sources: list[dict]):
+def pythonised_fritz_emgw_filter_stage_1(sources: list[dict], save=True,
+                                         outdir: str = None):
     """Filter candidates using the Fritz EMGW filter, but in python instead of mongo
     """
     if not isinstance(sources, np.ndarray):
@@ -49,6 +50,10 @@ def pythonised_fritz_emgw_filter_stage_1(sources: list[dict]):
                                              & ~source['variable_source_flag']
     selected_source_mask = np.array([x['fritz_emgw_filter_1_flag']
                                      for x in sources]).astype(bool)
+    if save:
+        if save:
+            save_candidates_to_file(deepcopy(sources),
+                                    savefile=f'{outdir}/fritz_emgw_stage_1.csv')
     return sources[selected_source_mask]
 
 
