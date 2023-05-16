@@ -351,8 +351,9 @@ def annotate_candidates(candidates: list[dict]):
                 candidate['annotations'] = f"likely QSO WISE W1-W2 = {w1mw2:.2f})"
                 candidate['annotation_id'] = 99
             else:
-                candidate['annotations'] = f"WISE W1-W2 = {w1mw2:.2f}"
-                candidate['annotation_id'] = 50
+                if len(candidate['annotations']) == 0:
+                    candidate['annotations'] += f", W1-W2 = {w1mw2:.2f}"
+                    candidate['annotation_id'] = 50
 
         if 0 <= candidate['candidate']['ssdistnr'] < 10:
             candidate['annotations'] = f"likely asteroid, " \

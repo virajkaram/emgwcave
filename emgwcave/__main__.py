@@ -1,4 +1,6 @@
 import argparse
+
+import pandas as pd
 from astropy.time import Time
 from emgwcave.kowalski_utils import search_in_skymap, connect_kowalski, \
     default_projection_kwargs
@@ -13,6 +15,8 @@ import os
 from emgwcave.skymap_utils import get_mjd_from_skymap
 from copy import deepcopy
 from pathlib import Path
+from emgwcave.fritz_utils import query_candidates_fritz
+import numpy as np
 
 
 def setup_output_directories(output_dir: str):
@@ -35,7 +39,8 @@ def filter_candidates(skymap_path: str | Path,
                       instrument: str = 'ZTF',
                       outdir='emgwcave_output',
                       nthreads: int = 8,
-                      min_ndethist: int = 1):
+                      min_ndethist: int = 1,
+                      localization_compare_skymappath: str | Path = None):
     # TODO: use different dates for jd and jdstarthist, as jdstarthist is
     #  3-sigma detections. So the default should be search for all alerts generated in
     #  the given time windo (i.e. now), but filter through only those that have
@@ -44,6 +49,7 @@ def filter_candidates(skymap_path: str | Path,
     #  5 days. Also sorts the problem of getting the latest photometry point. Actually
     #  the filter requires jd -jdstarthist < 10 days, so maybe we can use that
     #  instead of arbitrarily large days.
+
     jd_event = mjd_event + 2400000.5
     # Set up Kowalski connection and run query
     kowalski = connect_kowalski()
@@ -71,15 +77,19 @@ def filter_candidates(skymap_path: str | Path,
     save_candidates_to_file(deepcopy(selected_candidates),
                             savefile=f'{outdir}/all_retrieved_alerts.csv')
 
+    if localization_compare_skymappath is None:
+        localization_compare_skymappath = skymap_path
     # Perform a second check for candidates in the skymap
     selected_candidates = get_candidates_in_localization(selected_candidates,
-                                                         skymap_path,
+                                                         localization_compare_skymappath,
                                                          cumprob)
     print(f"Retained {len(selected_candidates)} alerts after localization check.")
+    save_candidates_to_file(deepcopy(selected_candidates),
+                            savefile=f'{outdir}/alerts_inside_localization.csv')
 
     if filter == 'fritz':
         selected_candidates = pythonised_fritz_emgw_filter_stage_1(
-            selected_candidates)
+            selected_candidates, save=True, outdir=outdir)
     print(f"Filtered {len(selected_candidates)} alerts.")
 
     # Get full photometry history for the selected candidates
@@ -113,6 +123,13 @@ if __name__ == '__main__':
                              '(10 days = age constraint in filter) ',
                         default=None
                         )
+    parser.add_argument("-additional_skymappath", type=str,
+                        help='If you want, you can pass the path to a separate '
+                             'skymap that will be used to check whether '
+                             'candidate is in localization. This is useful if the map '
+                             'you use for kowalski queries is a fake-map generated '
+                             'using crossmatch, because the skymap was not being '
+                             'parsed', default=None)
     parser.add_argument("-start_date", type=str, default=None,
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
@@ -128,6 +145,11 @@ if __name__ == '__main__':
     parser.add_argument("-plot_thumbnails_separately", action="store_true")
     parser.add_argument("-date_event", type=str, default=None,
                         help="e.g. 2023-04-22T00:00:00")
+    parser.add_argument("-do_fritz_comparison", action="store_true")
+    parser.add_argument("-localization_name", type=str, default=None,
+                        help="e.g. glg_healpix_..fit")
+    parser.add_argument("-groupids", type=str, default='48',
+                        help="Group ID on fritz, e.g. 48,49")
 
     args = parser.parse_args()
 
@@ -149,6 +171,9 @@ if __name__ == '__main__':
     else:
         end_date_jd = Time(args.end_date).jd
 
+    localization_compare_skymappath = args.additional_skymappath
+    if localization_compare_skymappath is None:
+        localization_compare_skymappath = skymap_path
     # Set up paths and directories
     output_dir = args.outdir
 
@@ -173,6 +198,7 @@ if __name__ == '__main__':
                                             end_date_jd=end_date_jd,
                                             nthreads=args.nthreads,
                                             outdir=output_dir,
+                                            localization_compare_skymappath=localization_compare_skymappath,
                                             )
 
     # Get thumbnails
@@ -201,4 +227,31 @@ if __name__ == '__main__':
                   pdffilename=full_pdffile,
                   mjd0=mjd_event)
 
-    # app.run(debug=True, port=8000)
+    if args.do_fritz_comparison:
+        if args.localization_name is None:
+            raise ValueError("Please provide localization name with -localization_name")
+        start_date_str = Time(start_date_jd, format='jd').iso.split(' ')[0]
+        end_date_str = Time(end_date_jd, format='jd').iso.split(' ')[0]
+        localization_dateobs = Time(mjd_event, format='mjd').isot
+        fritz_candidates = query_candidates_fritz(startdate=start_date_str,
+                                                  enddate=end_date_str,
+                                                  localization_name=args.localization_name,
+                                                  localization_dateobs=localization_dateobs,
+                                                  localizationCumprob=args.cumprob,
+                                                  groupids=args.groupids
+                                                  )
+        fritz_candidate_ztf_names = np.array([x['id'] for x in fritz_candidates])
+
+        np.savetxt(os.path.join(output_dir, 'fritz_candidates.txt'),
+                   fritz_candidate_ztf_names, fmt='%s')
+
+        cave_candidates = pd.read_csv(savefile)
+        cave_candidate_ztf_names = np.array(cave_candidates['objectId'])
+        print(f"Found {len(cave_candidate_ztf_names)} candidates in CAVE")
+        print(f"Found {len(fritz_candidate_ztf_names)} candidates in Fritz")
+        missing_cave_candidates = np.setdiff1d(fritz_candidate_ztf_names,
+                                               cave_candidate_ztf_names)
+        print(f"Candidates in Fritz but not in CAVE : {missing_cave_candidates}")
+        missing_fritz_candidates = np.setdiff1d(cave_candidate_ztf_names,
+                                                fritz_candidate_ztf_names)
+        print(f"Candidates in CAVE but not in Fritz : {missing_fritz_candidates}")
