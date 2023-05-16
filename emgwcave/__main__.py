@@ -39,7 +39,8 @@ def filter_candidates(skymap_path: str | Path,
                       instrument: str = 'ZTF',
                       outdir='emgwcave_output',
                       nthreads: int = 8,
-                      min_ndethist: int = 1):
+                      min_ndethist: int = 1,
+                      localization_compare_skymappath: str | Path = None):
     # TODO: use different dates for jd and jdstarthist, as jdstarthist is
     #  3-sigma detections. So the default should be search for all alerts generated in
     #  the given time windo (i.e. now), but filter through only those that have
@@ -48,6 +49,7 @@ def filter_candidates(skymap_path: str | Path,
     #  5 days. Also sorts the problem of getting the latest photometry point. Actually
     #  the filter requires jd -jdstarthist < 10 days, so maybe we can use that
     #  instead of arbitrarily large days.
+
     jd_event = mjd_event + 2400000.5
     # Set up Kowalski connection and run query
     kowalski = connect_kowalski()
@@ -75,9 +77,11 @@ def filter_candidates(skymap_path: str | Path,
     save_candidates_to_file(deepcopy(selected_candidates),
                             savefile=f'{outdir}/all_retrieved_alerts.csv')
 
+    if localization_compare_skymappath is None:
+        localization_compare_skymappath = skymap_path
     # Perform a second check for candidates in the skymap
     selected_candidates = get_candidates_in_localization(selected_candidates,
-                                                         skymap_path,
+                                                         localization_compare_skymappath,
                                                          cumprob)
     print(f"Retained {len(selected_candidates)} alerts after localization check.")
     save_candidates_to_file(deepcopy(selected_candidates),
@@ -119,6 +123,13 @@ if __name__ == '__main__':
                              '(10 days = age constraint in filter) ',
                         default=None
                         )
+    parser.add_argument("-additional_skymappath", type=str,
+                        help='If you want, you can pass the path to a separate '
+                             'skymap that will be used to check whether '
+                             'candidate is in localization. This is useful if the map '
+                             'you use for kowalski queries is a fake-map generated '
+                             'using crossmatch, because the skymap was not being '
+                             'parsed', default=None)
     parser.add_argument("-start_date", type=str, default=None,
                         help='e.g. 2023-04-21T00:00:00')
     parser.add_argument("-instrument", type=str, choices=["ZTF", "WNTR"], default='ZTF')
@@ -160,6 +171,9 @@ if __name__ == '__main__':
     else:
         end_date_jd = Time(args.end_date).jd
 
+    localization_compare_skymappath = args.additional_skymappath
+    if localization_compare_skymappath is None:
+        localization_compare_skymappath = skymap_path
     # Set up paths and directories
     output_dir = args.outdir
 
@@ -184,6 +198,7 @@ if __name__ == '__main__':
                                             end_date_jd=end_date_jd,
                                             nthreads=args.nthreads,
                                             outdir=output_dir,
+                                            localization_compare_skymappath=localization_compare_skymappath,
                                             )
 
     # Get thumbnails
