@@ -70,6 +70,9 @@ def filter_candidates(skymap_path: str | Path,
     selected_candidates = candidates['default'][f'{instrument}_alerts']
     print(f"Retrieved {len(selected_candidates)} alerts.")
 
+    if len(selected_candidates) == 0:
+        return selected_candidates
+
     # Deduplicate candidates
     selected_candidates = deduplicate_candidates(selected_candidates)
     print(f"Retained {len(selected_candidates)} alerts after deduplication.")
