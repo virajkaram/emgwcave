@@ -317,6 +317,8 @@ def get_candidates_milliquas_crossmatch(candidates: list[dict]|np.ndarray):
 def annotate_candidates(candidates: list[dict]):
     if not isinstance(candidates, np.ndarray):
         candidates = np.array(candidates)
+    if len(candidates) == 0:
+        return candidates
 
     if 'cross_matches' not in candidates[0]:
         candidates = get_candidates_crossmatch(candidates)
