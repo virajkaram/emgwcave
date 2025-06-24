@@ -32,7 +32,8 @@ setuptools.setup(
         "matplotlib",
         "requests",
         "typing",
-        "ligo.skymap"
+        "fastavro",
+        "ligo.skymap",
     ],
     package_data={
     }

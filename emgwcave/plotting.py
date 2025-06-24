@@ -131,7 +131,7 @@ def plot_photometry(photometry_df: pd.DataFrame,
 
     ax.set_ylim(photometry_df['magpsf'].max() + 0.3,
                 photometry_df['magpsf'].min() - 0.3)
-    ax.set_xlim(-0.5, photometry_df['mjd'].max() - mjd0 + 0.2)
+    ax.set_xlim(photometry_df['mjd'].min() - mjd0 - 0.5, photometry_df['mjd'].max() - mjd0 + 0.2)
 
     if save:
         plt.savefig(savefile, bbox_inches='tight')
@@ -144,7 +144,7 @@ def make_full_pdf(selected_candidates: list[dict],
                   thumbnails_dir: str | Path,
                   phot_dir: str | Path,
                   pdffilename: str,
-                  mjd0=0):
+                  mjd0=None):
     if not isinstance(selected_candidates, np.ndarray):
         selected_candidates = np.array(selected_candidates)
 
@@ -193,8 +193,11 @@ def make_full_pdf(selected_candidates: list[dict],
             ax.set_yticks([])
 
             ax = plt.subplot(gs[3:5])
+            if mjd0 is None:
+                mjd0 = 0
             ax = plot_photometry(photometry_df, ax=ax, save=False, mjd0=mjd0)
-            ax.axvline(0, ymin=0, ymax=1, linestyle='--', color='black')
+            if mjd0 > 0:
+                ax.axvline(0, ymin=0, ymax=1, linestyle='--', color='black')
 
             ax = plt.subplot(gs[5])
             ax.set_xlim(0, 20)

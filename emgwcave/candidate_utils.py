@@ -28,9 +28,10 @@ def save_candidates_to_file(candidates: list[dict],
     candidate_df.to_csv(savefile, index=False)
 
 
-def append_photometry_to_candidates(candidates: list[dict]):
+def append_photometry_to_candidates(candidates: list[dict], k=None):
     projection = {'prv_candidates': 1}
-    k = connect_kowalski()
+    if k is None:
+        k = connect_kowalski()
     for candidate in candidates:
         name = candidate['objectId']
         prv_candidates = query_aux_alerts(k=k,
@@ -177,12 +178,13 @@ def make_photometry(alert,
 
 
 def get_thumbnails(candidates: list[dict],
-                   catalog='ZTF_alerts'):
+                   catalog='ZTF_alerts', k=None):
     projection = {'cutoutScience': 1,
                   'cutoutTemplate': 1,
                   'cutoutDifference': 1
                   }
-    k = connect_kowalski()
+    if k is None:
+        k = connect_kowalski()
 
     for candidate in candidates:
         query = get_find_query(catalog=catalog,
@@ -243,13 +245,14 @@ def get_candidates_in_localization(candidates: list[dict],
     return candidates[in_skymap_mask]
 
 
-def get_candidates_crossmatch(candidates: list[dict]):
+def get_candidates_crossmatch(candidates: list[dict], k=None):
     """Crossmatch candidates with other catalogs"""
     if not isinstance(candidates, np.ndarray):
         candidates = np.array(candidates)
 
     projection = {'cross_matches': 1}
-    k = connect_kowalski()
+    if k is None:
+        k = connect_kowalski()
     for candidate in candidates:
         name = candidate['objectId']
         ra = candidate['candidate']['ra']
