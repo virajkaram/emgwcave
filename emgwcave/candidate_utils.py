@@ -335,6 +335,9 @@ def annotate_candidates(candidates: list[dict]):
     for candidate in candidates:
         candidate['annotations'] = ''
         candidate['annotation_id'] = 10
+        for catname in ['milliquas', 'AllWISE', 'CLU_20190625', 'PS1_STRM']:
+            if catname not in candidate['cross_matches']:
+                candidate['cross_matches'][catname] = []
         milliquas_xmatch = candidate['cross_matches']['milliquas']
         wise_xmatch = candidate['cross_matches']['AllWISE']
         clu_xmatch = candidate['cross_matches']['CLU_20190625']
