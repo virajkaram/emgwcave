@@ -37,8 +37,11 @@ def append_photometry_to_candidates(candidates: list[dict], k=None):
         prv_candidates = query_aux_alerts(k=k,
                                           name=name,
                                           projection=projection)
-
-        candidate['prv_candidates'] = prv_candidates['prv_candidates']
+        try:
+            candidate['prv_candidates'] = prv_candidates['prv_candidates']
+        except IndexError:
+            print(f'Did not find an entry in kowalski for {name}, skipping')
+            candidate['prv_candidates'] = []
 
     return candidates
 
