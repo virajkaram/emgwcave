@@ -261,12 +261,15 @@ def get_candidates_crossmatch(candidates: list[dict], k=None):
         ra = candidate['candidate']['ra']
         dec = candidate['candidate']['dec']
         coords_dict = {name: [ra, dec]}
-        cross_matches = query_aux_alerts(k=k,
-                                         name=name,
-                                         projection=projection)
+        try:
+            cross_matches = query_aux_alerts(k=k,
+                                             name=name,
+                                             projection=projection)
 
-        candidate['cross_matches'] = cross_matches['cross_matches']
-
+            candidate['cross_matches'] = cross_matches['cross_matches']
+        except IndexError:
+            print(f'Did not find an entry in kowalski for {name}, skipping')
+            candidate['cross_matches'] = {}
         query = get_cone_search_query(coords_dict=coords_dict,
                                       catalog='milliquas_v6',
                                       projection={'Name': 1,
