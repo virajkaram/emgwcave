@@ -360,14 +360,17 @@ def annotate_candidates(candidates: list[dict]):
             candidate['annotation_id'] = 100
 
         elif len(wise_xmatch) > 0:
-            w1mw2 = wise_xmatch[0]['w1mpro'] - wise_xmatch[0]['w2mpro']
-            if w1mw2 > 0.5:
-                candidate['annotations'] = f"likely QSO WISE W1-W2 = {w1mw2:.2f})"
-                candidate['annotation_id'] = 99
-            else:
-                if len(candidate['annotations']) == 0:
-                    candidate['annotations'] += f", W1-W2 = {w1mw2:.2f}"
-                    candidate['annotation_id'] = 50
+            try:
+                w1mw2 = wise_xmatch[0]['w1mpro'] - wise_xmatch[0]['w2mpro']
+                if w1mw2 > 0.5:
+                    candidate['annotations'] = f"likely QSO WISE W1-W2 = {w1mw2:.2f})"
+                    candidate['annotation_id'] = 99
+                else:
+                    if len(candidate['annotations']) == 0:
+                        candidate['annotations'] += f", W1-W2 = {w1mw2:.2f}"
+                        candidate['annotation_id'] = 50
+            except KeyError:
+                print(f'No WISE data for {candidate["objectId"]}, skipping WISE annotation')
 
         if 0 <= candidate['candidate']['ssdistnr'] < 10:
             candidate['annotations'] = f"likely asteroid, " \

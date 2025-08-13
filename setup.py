@@ -33,7 +33,6 @@ setuptools.setup(
         "requests",
         "typing",
         "fastavro",
-        "ligo.skymap",
     ],
     package_data={
     }
